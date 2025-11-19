@@ -33,6 +33,9 @@ Our study area is the Stancomb-Wills Glacier, which is located on the Caird Coas
 </p>
 
 ## Usage Guide
+
+**(Instructions will be updated later to reflect future codebase changes. Additionally I will to cater them specifically account for the concerns my study area since its a smaller glacier and also tends to produce poor sequential gaussian simulations.)**
+
 ## Repository Structure
 ```
 TopographyMCMC/
