@@ -7,8 +7,9 @@ Repository containing code for subglacial bed interpolation of the Stancomb-Will
 2. [Glacier Background](#glacier-background)
 3. [Methodology](#methodology)
 4. [Usage Guide](#usage-guide)
-5. [Data](#data)
-6. [Contributors](#contributors)
+5. [Repository Structure](#repository-structure)
+6. [Data](#data)
+7. [Contributors](#contributors)
 ---
 
 ## Overview
@@ -32,6 +33,17 @@ Our study area is the Stancomb-Wills Glacier, which is located on the Caird Coas
 </p>
 
 ## Usage Guide
+## Repository Structure
+```
+TopographyMCMC/
+├── README.md
+├── notebooks/
+│   ├── LoadData.ipynb
+│   ├── StatisticalAnalysis.ipynb
+│   ├── LargeScaleChain.ipynb/
+│   └── SmallScaleChain.pynb
+└── figures/
+```
 ## Data
 
 - the MEaSUREs InSAR-Based Antarctica Ice Velocity Map (Ver 2), https://nsidc.org/data/nsidc-0484/versions/2
