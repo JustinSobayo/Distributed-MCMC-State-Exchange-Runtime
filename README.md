@@ -30,6 +30,13 @@ Our study area is the Stancomb-Wills Glacier, which is located on the Caird Coas
 
 ## Usage Guide
 ## Data
+
+- the MEaSUREs InSAR-Based Antarctica Ice Velocity Map (Ver 2), https://nsidc.org/data/nsidc-0484/versions/2
+- Surface Mass Balance provided by RACMO2.3p2, https://www.projects.science.uu.nl/iceclimate/publications/data/2018/vwessem2018_tc/RACMO_Yearly/
+- MEaSUREs ITS_LIVE Antarctic Grounded Ice Sheet Elevation Change (Ver 1), https://nsidc.org/data/nsidc-0782/versions/1
+- BedMachine Topography, https://nsidc.org/data/nsidc-0756/versions/3
+- BedMap3 Radar Data and Topography, https://www.bas.ac.uk/project/bedmap/#data
+
 ## Contributors
 - Bakari Kerr
 - Niya Shao
