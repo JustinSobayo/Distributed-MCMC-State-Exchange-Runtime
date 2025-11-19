@@ -6,6 +6,7 @@ Repository containing code for subglacial bed interpolation of the Stancomb-Will
 3. [Methodology](#methodology)
 4. [Usage Guide](#usage-guide)
 5. [Data](#data)
+6. [Contributors](#contributors)
 
 ---
 ## Overview
@@ -15,10 +16,23 @@ Subglacial topography, or the elevation of the bed underneath glaciers, is one o
   <img src="./figures/StancombWillsGlacierLocation.png"/>
 </p>
 Our study area is the Stancomb-Wills Glacier, which is located on the Caird Coast on the western shore of the Weddell Sea. The glacier’s surface area is around 124,000 kilometers The ice stream feeds into the glacier's ice tongue at a rate of around 750 meters per year.
+<p align="center">
+  <img src="./figures/IceVelocityMagnitude.png"/>
+</p>
 
 ## Methodology
 - Our Markov chain Monte Carlo approach first involves computing a variogram to use sequential gaussian simulation to produce an initial topography. We then compute the ice flux divergence of this simulation. We then run a large-scale chain followed by a small-scale chain.
 - **Large-Scale Chain**: For each iteration, we randomly perturb parts of the topography then recompute the ice flux divergence. If the divergence is less than that of the previous iteration, we keep this new topography.
 - **Small-Scale Chain**: For each iteration, we use to sequential gaussian simulation to re-simulate parts of the topography then recompute the ice flux divergence. If the divergence is less than that of the previous iteration, we keep this new topography.
+<p align="center">
+  <img src="./figures/MCMCDiagram.png"/>
+</p>
+
 ## Usage Guide
 ## Data
+## Contributors
+- Bakari Kerr
+- Niya Shao
+- Michael Field
+- Emma MacKie
+- Sean Hamilton
