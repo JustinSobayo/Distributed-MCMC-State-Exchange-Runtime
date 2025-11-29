@@ -29,6 +29,8 @@ Our study area is the Stancomb-Wills Glacier, which is located on the Caird Coas
   <img src="./figures/StancombWillsGlacierVisualizations.png"/>
 </p>
 
+Though the code and data below is run with this study area, the notebooks will apply to any areas with high velocity zones in Antartica.
+
 ## Methodology
 
 - Our Markov chain Monte Carlo approach first involves computing a variogram to use sequential gaussian simulation to produce an initial topography. We then compute the ice flux divergence of this simulation. We then run a large-scale chain followed by a small-scale chain.
@@ -43,17 +45,45 @@ Shao, N., MacKie, E., Field, M., & McCormack, F. (2025). A Markov chain Monte Ca
 
 ## Usage Guide
 
-**(Instructions will be updated later to reflect future codebase changes. Additionally I will to cater them specifically account for the concerns my study area since its a smaller glacier and also tends to produce poor sequential gaussian simulations.)**
+This repository of four primary notebooks and one auxillary one within the 'notebooks' folder. These notebooks step through the process of loading data and preprocessing it before performing the Markov Chain Monte Carlo Simulation. All data that is neccessary is referenced below, and all data that is produced is located within the 'data' folder. the 'figures' folder consist of various visualizations and realizations produced by the code in this repository. All libraries needed to run the code are found within the 'environment.yml' file for conda and the 'requirements.txt' for pip.
+
+1. **T1_LoadData**: This notebooks contains the code for loading and processing the data from the data sources referenced below. Due to the size of the data used, it is not provided within this repository. However, the output of running this code for my study area is saved as 'StancombWillsDataGridded.csv' within the 'data' folder. 
+2. **T2_StatisticalAnalysis**: This notebook is responsible for performing the intial sequential gaussian simulation required to star the Markov Chain Monte Carlo process. An example simulation is stored within the 'data' folder under 'sgs_bed.txt'.
+3. **T3_LargeScaleChain**: This notebook contains the code for the Large-Scale Chain, which involves randomly perturbing the topography at each step to minimize the mass flux residual. The topography after running the Large-Scale Chain for 5,000,000 iterations can be found within the 'data' folder labeled as 'lsc_bed.txt'. Note that the notebook only shows the results from the last 500,000 iterations due to frequent modifications. The following table shows the parameters used to create the example bed givin. 
+
+| Number of Iterations | Minimum Perturbation (meters) | Maximum Perturbation (meters) |
+|---|---|---|
+| 1,000,000 | 50 | 150 |
+| 1,000,000 | 50 | 250 |
+| 1,000,000 | 1 | 400 |
+| 1,000,000 | 10 | 1000 |
+| 500,000 | 10 | 2000 |
+| 500,000 | 1 | 1500 |
+
+5. **T4_SmallScaleChain**: This notebook contains the code for the Small-Scale Chain, which involves reperforming sequential gaussian simulation on small sections of the topography. The 'small-scale chain data' folder within the 'data' folder contains 10 mass conserving topographies that were collected over the course of 50,000 iterations. Multiple topographies allows us the better quantify uncertainty within the subglacial bed. 
+6. **Visualizations**: This notebook contains code for the visualizations found within the 'figures' folder and in this README. 
 
 ## Repository Structure
 ```
 TopographyMCMC/
 ├── README.md
+├── LICENSE
+├── environment.yml
+├── requirements.txt
 ├── notebooks/
 │   ├── T1_LoadData.ipynb
 │   ├── T2_StatisticalAnalysis.ipynb
-│   ├── T3_LargeScaleChain.ipynb/
-│   └── T4_SmallScaleChain.pynb
+│   ├── T3_LargeScaleChain.ipynb
+│   ├── T4_SmallScaleChain.ipynb
+│   └── Visualizations.ipynb
+├── data/
+│   ├── StancombWillsDataGridded.csv
+│   ├── sgs_bed.txt
+│   ├── lsc_bed.txt
+│   └── small-scale chain data/
+│       ├──Stancomb_sgs1_bed_0.txt
+│       ├──Stancomb_sgs1_bed_10000.txt
+│       └──Stancomb_sgs1_bed_...
 └── figures/
 ```
 ## Data
