@@ -94,7 +94,7 @@ TopographyMCMC/
 
 ## Results
 
-Topographies of the Stancomb Wills Glacier Bed from BedMap and BedMachine are shown below in addition to those produced by sequential gaussian simulation, the Large-Scale Chain, and the Small-Scale Chain. These topographies demonstrate our workflow's ability to preserve realistic roughness. Additonally, the mass flux residuals shown after demonstrates the pipelines ability to produce topographies that do not violate mass conservation geophysics.
+Topographies of the Stancomb Wills Glacier Bed from BedMap and BedMachine are shown below in addition to those produced by sequential gaussian simulation, the Large-Scale Chain, and the Small-Scale Chain. These topographies demonstrate our workflow's ability to preserve realistic roughness. Additonally, the mass flux residuals shown after demonstrates the pipelines ability to produce topographies that do not violate mass conservation geophysics. Running the Large-Scale Chain for more iterations could further reduce the mass flux residual.
 
 <p align="center">
   <img src="./figures/Topographies.png"/>
