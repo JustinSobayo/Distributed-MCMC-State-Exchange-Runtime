@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./figures/logo.png"/>
+  <img src="Poster.png"/>
 </p>
 
 # TopographyMCMC
