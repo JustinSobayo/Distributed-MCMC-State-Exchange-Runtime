@@ -1,1 +1,25 @@
 stancomb_wills_pt_platform_implementation_spec.md
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# C/C++
+build/
+cmake-build-*/
+
+# Runtime/log output
+*.log
+
+# Generated experiment results
+results/*
+!results/.gitkeep
+
+# IDE
+.vscode/
+.idea/
