@@ -19,6 +19,14 @@ def _interpolate(interp_method, fromx, fromy, data, tox, toy, k):
     return result
 
 def min_dist_from_mask(xx, yy, mask):
+    """
+    Distance from every grid node to the nearest cell where ``mask`` is true.
+
+    ``xx`` and ``yy`` are the 2-D coordinate grids. The result has the same
+    shape and is in the same units as those coordinates (meters on the
+    Stancomb-Wills grid). ``get_crf_weight`` and ``get_edge_masks`` turn this
+    distance into the logistic conditioning weight. No random numbers are used.
+    """
     tree = KDTree(np.array([xx[mask], yy[mask]]).T)
     distance = tree.query(np.array([xx.ravel(), yy.ravel()]).T)[0].reshape(xx.shape)
     return distance
