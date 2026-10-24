@@ -18,6 +18,14 @@ Both commands must exit zero. The worker prints `ACK coordinator` and the coordi
 
 ## HiPerGator
 
-Copy these scripts to the Blue project directory or invoke them from a cloned checkout there. Run `slurm/net_smoke_same_node.sh` through `sbatch` after replacing `<COURSE_GROUP>` and `<gatorlink>`; it uses two concurrent `srun` steps, with the coordinator launched first. See [the smoke-test plan](../../docs/hipergator_outbound_connect_smoke_test.md) for allocation requirements, the optional two-node test, and result recording.
+From the Blue checkout **repo root** (so `SLURM_SUBMIT_DIR` is correct):
+
+```bash
+mkdir -p /blue/gly4930/justinsobayo/mcmc_runtime/net_smoke
+sbatch slurm/net_smoke_same_node.sh
+sbatch slurm/net_smoke_two_nodes.sh
+```
+
+Scripts are already wired for `gly4930` / `justinsobayo`. See [the smoke-test plan](../../docs/hipergator_outbound_connect_smoke_test.md) for results and pass criteria.
 
 Do not run the coordinator or worker on the login node.
