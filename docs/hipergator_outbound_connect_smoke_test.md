@@ -1,21 +1,27 @@
 # HiPerGator Smoke Test — Worker Connects Outbound
 
-Status: **plan for a short on-cluster proof** (no MCMC, no adapter, no C++).
+Status: **on-cluster proof complete** (no MCMC, no adapter, no C++).
 
 ## Implementation status (2026-10-24)
 
-The local smoke-test artifacts are implemented. No HiPerGator allocation has been run by this agent, so on-cluster Test A/Test B and the results note remain pending.
+Scripts live in-repo under `scripts/net_smoke/` and `slurm/`. HiPerGator Test A and Test B both **PASS**.
 
-Implemented:
+- `scripts/net_smoke/coord_listen.py` / `worker_dial.py`: stdlib HELLO/ACK over TCP.
+- `slurm/net_smoke_same_node.sh` / `slurm/net_smoke_two_nodes.sh`: gly4930 account/qos, `SLURM_SUBMIT_DIR` for repo paths, fixed `--port 7000`, LF line endings (see `.gitattributes`).
 
-- `scripts/net_smoke/coord_listen.py`: stdlib coordinator; binds `0.0.0.0`, accepts `--expect` workers, validates one line of `HELLO`, returns `ACK coordinator`, and exits nonzero on timeout/socket/protocol failures.
-- `scripts/net_smoke/worker_dial.py`: stdlib outbound client; connects with a bounded timeout, sends `HELLO from worker-<replica-id>`, validates the ACK, and exits 0/1.
-- `scripts/net_smoke/README.md`: local invocation plus the SLURM execution boundary.
-- `slurm/net_smoke_same_node.sh` and `slurm/net_smoke_two_nodes.sh`: optional templates using concurrent `srun` steps and only `<COURSE_GROUP>` / `<gatorlink>` placeholders.
+### Re-run after `git pull` (from repo root on Blue)
 
-Local validation passed: `coord_listen.py` on `127.0.0.1:17000` accepted `worker_dial.py`, logged the HELLO, returned the ACK, and both scripts printed their `SMOKE_TEST_*_PASS` markers. This only validates the scripts and local TCP; it does not validate the HiPerGator network.
+```bash
+cd /blue/gly4930/justinsobayo/mcmc_runtime/Distributed-MCMC-State-Exchange-Runtime
+git pull
+mkdir -p /blue/gly4930/justinsobayo/mcmc_runtime/net_smoke
+sbatch slurm/net_smoke_same_node.sh    # Test A
+sbatch slurm/net_smoke_two_nodes.sh    # Test B
+# when queue is empty:
+ls -t /blue/gly4930/justinsobayo/mcmc_runtime/net_smoke/net_smoke_*-*.out | head -2 | xargs -I{} sh -c 'echo ===== {}; cat {}'
+```
 
-To validate on HiPerGator, replace the placeholders, ensure the scripts are accessible from Blue, submit `slurm/net_smoke_same_node.sh`, then record the job ID and result in §6 below. Run the two-node template only after same-node Test A passes.
+Expect `SMOKE_TEST_COORDINATOR_PASS` and `SMOKE_TEST_WORKER_PASS` in each `.out`.
 Goal: confirm that inside a SLURM allocation, a **worker process can open a TCP connection out to a coordinator process** that is listening — the network mode locked for the replica worker.
 
 Related decision: `docs/replica_worker_implementation_plan.md` §5 (workers connect outbound).
@@ -179,31 +185,33 @@ Only after Test A passes.
 
 ---
 
-## 6. What to record in the repo after the run
-
-Add a short note under this file or in `docs/notes.md`:
+## 6. Results (recorded 2026-10-24)
 
 ```text
-Date:
-GatorLink / course account:
-Test A result: PASS/FAIL (job id)
-Test B result: PASS/FAIL/SKIPPED (job id)
-Host/port method used:
-Python module used:
-Blockers:
+Date: 2026-10-24
+GatorLink / course account: justinsobayo / gly4930
+Test A result: PASS (same-node interactive/srun earlier; batch script aligned)
+Test B result: PASS (two-node sbatch; worker peer 172.16.201.186 dialed coordinator host c0706a-s5:7000)
+Host/port method used: scontrol hostnames + fixed port 7000; workers dial outbound
+Python module used: system python3 (no conda)
+Blockers: none for outbound TCP inside the allocation
 ```
 
-Update `docs/replica_worker_implementation_plan.md` Agent Context if anything unexpected (e.g. must use a fixed port range).
+Operational notes that burned time before PASS:
+
+- Submit from the **repo root** so `SLURM_SUBMIT_DIR` resolves scripts (do not rely on `BASH_SOURCE` under `/var/spool/...`).
+- Keep shell scripts **LF, no UTF-8 BOM** (Windows edits + paste corruption caused `--port"$PORT"` / shebang failures).
+- Prefer literal `--port 7000` in the SLURM templates; avoid fragile `"$PORT"` paste paths.
 
 ---
 
 ## 7. Definition of done (this smoke test only)
 
-- [x] Scripts exist and passed local stdlib TCP validation; HiPerGator execution remains pending.
-- [ ] Test A (same node) PASS
-- [ ] (Optional) Test B (two nodes) PASS or documented FAIL + ticket
-- [ ] Results note written
-- [ ] No login-node compute used for the test
+- [x] Scripts exist and passed local stdlib TCP validation
+- [x] Test A (same node) PASS
+- [x] Test B (two nodes) PASS
+- [x] Results note written
+- [x] No login-node compute used for the test
 
 ---
 

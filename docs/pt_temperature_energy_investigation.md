@@ -8,7 +8,7 @@ Decide the minimal change needed so MVP temperature-exchange PT is scientificall
 
 `TopographyMCMCAdapter` stores a replica temperature via `get_temperature` / `set_temperature` and reports energy from Niya's loss arrays after each `run_batch`.
 
-Temperature is **not yet injected** into Niya's accept/reject rule.
+Temperature is not injected into Niya's accept/reject rule; the adapter stores it as replica metadata only.
 
 ## Findings in `chain_crf.run` (`MCMC.py` ~1188–1194)
 
@@ -23,7 +23,7 @@ if (u <= acceptance_rate):
 ```
 
 - Acceptance is standard Metropolis on total loss (MC + data).
-- There is **no temperature** today; `sigma_mc` / data weights change the loss surface, not a PT schedule.
+- There is no temperature in the current accept/reject rule; `sigma_mc` / data weights change the loss surface, not a PT schedule.
 - Temperature cannot be applied outside the loop: each proposal compares `loss_prev` vs `loss_next` inside `run`.
 
 ## MVP decision
@@ -38,9 +38,9 @@ with `T` supplied per replica (adapter `get/set_temperature`), leaving the rest 
 
 ## Status
 
-- Accept site located; preferred science hook is Option A.
-- Adapter currently implements Option B (T metadata + energy reporting).
-- Next: either a minimal `T`-aware accept patch agreed with Niya, or subclass/wrapper hook if we must avoid editing her file.
+- Accept site located; preferred science hook is Option A, but it is not implemented because Niya's source is immutable.
+- Adapter implements Option B: temperature metadata plus energy reporting.
+- A future approved adapter/subclass hook is required for scientifically tempered local acceptance.
 
 ## Related reproducibility note
 
