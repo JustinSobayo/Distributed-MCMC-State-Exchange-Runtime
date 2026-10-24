@@ -17,3 +17,6 @@ Project notes and plans live in this folder:
 - `notes.md` — working notes / Stancomb orientation
 - `specification.md` — full implementation plan
 - `pt_temperature_energy_investigation.md` — PT temperature vs accept rule
+- `replica_worker_implementation_plan.md` — next coding step (asyncio Python worker; **workers connect outbound**) + agent handoff context
+- `hipergator_outbound_connect_smoke_test.md` — short SLURM TCP proof (coordinator listens, worker dials) before full worker work
+- `hipergator_class_access.md` — SSH, compute/dev sessions, Blue paths, and how to `cd` to your class folder
