@@ -41,11 +41,28 @@ class ReplicaWorker:
 
     def status(self, *, ok: bool = True, message: str | None = None) -> dict[str, Any]:
         metadata = self.adapter.get_metadata()
+        attempted = int(metadata["attempted_this_batch"])
+        accepted = int(metadata["accepted_this_batch"])
+        a_local = (accepted / attempted) if attempted else None
+        a_local_cum = (
+            metadata["accepted_completed"] / metadata["proposals_completed"]
+            if metadata["proposals_completed"]
+            else None
+        )
         return {
-            "type": "STATUS", "ok": ok, "replica_id": self.config.replica_id,
-            "temperature": metadata["temperature"], "energy": metadata["energy"],
+            "type": "STATUS",
+            "ok": ok,
+            "replica_id": self.config.replica_id,
+            "temperature": metadata["temperature"],
+            "energy": metadata["energy"],
             "proposals_completed": metadata["proposals_completed"],
-            "batches_completed": metadata["batches_completed"], "message": message,
+            "accepted_completed": metadata["accepted_completed"],
+            "accepted_this_batch": accepted,
+            "attempted_this_batch": attempted,
+            "a_local": a_local,
+            "a_local_cumulative": a_local_cum,
+            "batches_completed": metadata["batches_completed"],
+            "message": message,
         }
 
     async def dispatch(self, message: dict[str, Any]) -> dict[str, Any]:

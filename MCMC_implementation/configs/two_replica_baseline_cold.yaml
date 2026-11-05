@@ -1,0 +1,30 @@
+experiment:
+  name: two_replica_baseline_cold
+  seed: 1234
+  rng_seed: 1234
+  rf_seed: 1235
+  coordinator_seed: 1333
+science:
+  problem: synthetic
+  backend: cpu
+  config: null
+  rows: 24
+  cols: 24
+  resolution: 500.0
+sampling:
+  replicas: 2
+  temperatures: [1.0, 1.0]
+  batch_n_iterations: 11
+  rounds: 5
+  warmup_rounds: 0
+exchange:
+  enabled: false
+  pairing: two_replica
+logging:
+  terminal: true
+  log_every_rounds: 1
+runtime:
+  coordinator_host: 127.0.0.1
+  coordinator_port: 0
+  round_timeout_seconds: 600
+  output_dir: results/two_replica_baseline_cold

@@ -1008,7 +1008,7 @@ class chain_crf(chain):
         crf_weight, dist, dist_rescale, dist_logi = RF.get_crf_weight(self.xx,self.yy,self.data_mask)
         self.crf_data_weight = crf_weight
 
-    def run(self, n_iter, RF, rng_seed=None, only_save_last_bed=False, info_per_iter = 1000, plot=True, progress_bar=True):
+    def run(self, n_iter, RF, rng_seed=None, only_save_last_bed=False, info_per_iter = 1000, plot=True, progress_bar=True, temperature=1.0):
         """Runs the MCMC sampling chain to generate topography realizations.
 
         Args:
@@ -1017,6 +1017,9 @@ class chain_crf(chain):
             rng_seed (int, optional): A seed for the random number generator to ensure reproducibility. Defaults to None.
             only_save_last_bed (bool): If True, only the final topography is returned. If False, the topography from every iteration is saved, which requires more memory.
             info_per_iter (int): The iteration interval for printing progress updates, such as loss and acceptance rate, to the console.
+            temperature (float): Tempering parameter T for the Metropolis accept rule
+                min(1, exp((loss_prev - loss_next) / T)). Default 1.0 preserves the
+                original untempered behavior. Must be positive.
 
         Returns:
             bed_cache (np.ndarray): A 4D array of saved topographies if `only_save_last_bed` is False, or a 2D array of the final topography if True.
@@ -1035,6 +1038,10 @@ class chain_crf(chain):
             rng = rng_seed
         else:
             raise ValueError('Seed should be an integer, a NumPy random Generator, or None')
+
+        temperature = float(temperature)
+        if not np.isfinite(temperature) or temperature <= 0:
+            raise ValueError('temperature must be a positive finite float')
             
         if not isinstance(RF, RandField):
             raise TypeError('The arugment "RF" has to be an object of the class RandField')
@@ -1188,7 +1195,7 @@ class chain_crf(chain):
             if loss_prev > loss_next:
                 acceptance_rate = 1
             else:
-                acceptance_rate = min(1,np.exp(loss_prev-loss_next))
+                acceptance_rate = min(1, np.exp((loss_prev - loss_next) / temperature))
             
             u = rng.random()
             if (u <= acceptance_rate):
@@ -1394,7 +1401,7 @@ class chain_sgs(chain):
         self.block_max_x = block_max_x
         self.block_max_y = block_max_y
 
-    def run(self, n_iter, rng_seed=None, only_save_last_bed=False, info_per_iter=1000):
+    def run(self, n_iter, rng_seed=None, only_save_last_bed=False, info_per_iter=1000, temperature=1.0):
         """
         Run the MCMC chain using block-based SGS updates
         
@@ -1403,6 +1410,9 @@ class chain_sgs(chain):
             rng_seed (None or string): The seed for the NumPy random number generator. If None, a random seed is used.
             only_save_last_bed: If true, the function will only return one subglacial topography at the end of iterations. If false, the function will return all subglacial topography in every iteration.
             info_per_iter (int): for every this number of iterations, the information regarding current loss values and acceptance rate will be printed out.
+            temperature (float): Tempering parameter T for the Metropolis accept rule
+                min(1, exp((loss_prev - loss_next) / T)). Default 1.0 preserves the
+                original untempered behavior. Must be positive.
         
         Returns:
             bed_cache (np.ndarray): A 3D array showing subglacial topography at each iteration, or only the last topography.
@@ -1422,6 +1432,10 @@ class chain_sgs(chain):
             rng = rng_seed
         else:
             raise ValueError('Seed should be an integer, a NumPy random Generator, or None')
+
+        temperature = float(temperature)
+        if not np.isfinite(temperature) or temperature <= 0:
+            raise ValueError('temperature must be a positive finite float')
         
         xmin = np.min(self.xx)
         xmax = np.max(self.xx)
@@ -1575,7 +1589,7 @@ class chain_sgs(chain):
                 acceptance_rate = 1
                 
             else:
-                acceptance_rate = min(1,np.exp(loss_prev-loss_next))
+                acceptance_rate = min(1, np.exp((loss_prev - loss_next) / temperature))
 
             u = rng.random()
             
@@ -1619,7 +1633,7 @@ class chain_sgs(chain):
         else:
             return last_bed, loss_mc_cache, loss_data_cache, loss_cache, step_cache, resampled_times, blocks_cache
 
-    def run_newsgs(self, n_iter, rng_seed=None, only_save_last_bed=False, info_per_iter=1000):
+    def run_newsgs(self, n_iter, rng_seed=None, only_save_last_bed=False, info_per_iter=1000, temperature=1.0):
         """
         Run the MCMC chain using block-based SGS updates, with the new gstatsim_custom code
         
@@ -1628,6 +1642,9 @@ class chain_sgs(chain):
             rng_seed (None or string): The seed for the NumPy random number generator. If None, a random seed is used.
             only_save_last_bed: If true, the function will only return one subglacial topography at the end of iterations. If false, the function will return all subglacial topography in every iteration.
             info_per_iter (int): for every this number of iterations, the information regarding current loss values and acceptance rate will be printed out.
+            temperature (float): Tempering parameter T for the Metropolis accept rule
+                min(1, exp((loss_prev - loss_next) / T)). Default 1.0 preserves the
+                original untempered behavior. Must be positive.
         
         Returns:
             bed_cache (np.ndarray): A 3D array showing subglacial topography at each iteration, or only the last topography.
@@ -1647,6 +1664,10 @@ class chain_sgs(chain):
             rng = rng_seed
         else:
             raise ValueError('Seed should be an integer, a NumPy random Generator, or None')
+
+        temperature = float(temperature)
+        if not np.isfinite(temperature) or temperature <= 0:
+            raise ValueError('temperature must be a positive finite float')
         
         xmin = np.min(self.xx)
         xmax = np.max(self.xx)
@@ -1777,7 +1798,7 @@ class chain_sgs(chain):
                 acceptance_rate = 1
                 
             else:
-                acceptance_rate = min(1,np.exp(loss_prev-loss_next))
+                acceptance_rate = min(1, np.exp((loss_prev - loss_next) / temperature))
     
             u = rng.random()
             
