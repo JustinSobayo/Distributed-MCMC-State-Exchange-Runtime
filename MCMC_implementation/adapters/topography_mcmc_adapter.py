@@ -1,13 +1,13 @@
 """
-Python adapter/wrapper around Niya's unchanged MCMC implementation.
+Python adapter/wrapper around Niya's MCMC implementation.
 
 Design rules (see docs/specification.md):
 - Do not rewrite Niya's internal iteration loop into step().
 - Drive the existing chain_crf.run(n_iter) interface in finite batches.
 - Preserve bed + RNG state between batches so run(K) chunks can match a
   continuous run when proposal counts are aligned.
-- MVP PT will swap temperatures via get/set_temperature; full bed
-  export/import is optional.
+- Pass replica temperature into run() so local Metropolis uses
+  exp((E_prev - E_next) / T); MVP PT swaps temperatures via get/set_temperature.
 """
 
 from __future__ import annotations
@@ -46,6 +46,9 @@ class TopographyMCMCAdapter:
         self._current_bed: Optional[np.ndarray] = None
         self._proposals_completed: int = 0
         self._batches_completed: int = 0
+        self._accepted_completed: int = 0
+        self._accepted_this_batch: int = 0
+        self._attempted_this_batch: int = 0
         self._last_result: Optional[dict[str, Any]] = None
         self._initialized: bool = False
 
@@ -77,6 +80,9 @@ class TopographyMCMCAdapter:
         self._energy_data = None
         self._proposals_completed = 0
         self._batches_completed = 0
+        self._accepted_completed = 0
+        self._accepted_this_batch = 0
+        self._attempted_this_batch = 0
         self._last_result = None
         self._initialized = True
 
@@ -110,10 +116,15 @@ class TopographyMCMCAdapter:
             info_per_iter=max(n_iterations, 1),
             plot=False,
             progress_bar=False,
+            temperature=self._temperature,
         )
         bed_c, loss_mc, loss_data, loss, steps, resampled_times, blocks = result
 
         proposals = n_iterations - 1
+        steps_arr = np.asarray(steps)
+        if steps_arr.ndim != 1 or steps_arr.size != n_iterations:
+            raise RuntimeError("Niya step_cache must have n_iterations binary entries")
+        accepted = int(np.sum(steps_arr[1:]))
         self._current_bed = np.array(bed_c, copy=True)
         self.chain.initial_bed = np.array(bed_c, copy=True)
         # Recompute energy from the final bed. Niya's run() updates mass-conservation
@@ -121,6 +132,9 @@ class TopographyMCMCAdapter:
         # cached loss[-1] can drift slightly even when beds match bit-for-bit.
         self._refresh_energy_from_bed()
         self._proposals_completed += proposals
+        self._accepted_completed += accepted
+        self._accepted_this_batch = accepted
+        self._attempted_this_batch = proposals
         self._batches_completed += 1
 
         self._last_result = {
@@ -128,11 +142,14 @@ class TopographyMCMCAdapter:
             "loss": np.asarray(loss),
             "loss_mc": np.asarray(loss_mc),
             "loss_data": np.asarray(loss_data),
-            "steps": np.asarray(steps),
+            "steps": steps_arr,
             "blocks": np.asarray(blocks),
             "resampled_times": np.asarray(resampled_times),
             "proposals_this_batch": proposals,
+            "accepted_this_batch": accepted,
+            "attempted_this_batch": proposals,
             "proposals_completed": self._proposals_completed,
+            "accepted_completed": self._accepted_completed,
             "temperature": self._temperature,
             "energy": self._energy,
         }
@@ -151,14 +168,14 @@ class TopographyMCMCAdapter:
         """
         Assign this replica's temperature.
 
-        NOTE: Niya's current accept/reject rule does not yet consume temperature.
-        Documented investigation task: inject T into local acceptance with a
-        minimal wrapper/extension only if required. See
-        docs/pt_temperature_energy_investigation.md.
+        The next `run_batch` passes T into Niya's Metropolis accept rule
+        `min(1, exp((E_prev - E_next) / T))`. Default/initial T=1 preserves
+        the original untempered behavior.
         """
-        if temperature <= 0:
-            raise ValueError("temperature must be positive")
-        self._temperature = float(temperature)
+        temperature = float(temperature)
+        if not np.isfinite(temperature) or temperature <= 0:
+            raise ValueError("temperature must be a positive finite float")
+        self._temperature = temperature
 
     def get_metadata(self) -> dict[str, Any]:
         self._require_initialized()
@@ -170,6 +187,9 @@ class TopographyMCMCAdapter:
             "energy_mc": self._energy_mc,
             "energy_data": self._energy_data,
             "proposals_completed": self._proposals_completed,
+            "accepted_completed": self._accepted_completed,
+            "accepted_this_batch": self._accepted_this_batch,
+            "attempted_this_batch": self._attempted_this_batch,
             "batches_completed": self._batches_completed,
             "bed_shape": None if bed is None else tuple(bed.shape),
             "bed_dtype": None if bed is None else str(bed.dtype),
@@ -186,6 +206,7 @@ class TopographyMCMCAdapter:
             "energy_mc": self._energy_mc,
             "energy_data": self._energy_data,
             "proposals_completed": self._proposals_completed,
+            "accepted_completed": self._accepted_completed,
             "batches_completed": self._batches_completed,
             "chain_rng_state": deepcopy(self._rng.bit_generator.state),
             "rf_rng_state": deepcopy(self.rf.rng.bit_generator.state),
@@ -202,7 +223,10 @@ class TopographyMCMCAdapter:
         self._energy_mc = ckpt.get("energy_mc")
         self._energy_data = ckpt.get("energy_data")
         self._proposals_completed = int(ckpt["proposals_completed"])
+        self._accepted_completed = int(ckpt.get("accepted_completed", 0))
         self._batches_completed = int(ckpt["batches_completed"])
+        self._accepted_this_batch = 0
+        self._attempted_this_batch = 0
         self._rng.bit_generator.state = deepcopy(ckpt["chain_rng_state"])
         self.rf.rng.bit_generator.state = deepcopy(ckpt["rf_rng_state"])
         if self._current_bed is not None:

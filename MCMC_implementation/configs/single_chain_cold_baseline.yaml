@@ -1,0 +1,22 @@
+experiment:
+  name: single_chain_cold_baseline
+  seed: 1234
+  rng_seed: 1234
+  rf_seed: 1235
+science:
+  problem: synthetic
+  backend: cpu
+  config: null
+  rows: 24
+  cols: 24
+  resolution: 500.0
+sampling:
+  temperature: 1.0
+  batch_n_iterations: 51  # Index zero is the start: 50 proposals per batch.
+  num_batches: 40        # 2000 attempted proposals.
+  budget_mode: proposals
+logging:
+  terminal: true
+  log_every_batches: 1
+runtime:
+  output_dir: results/single_chain_cold_baseline

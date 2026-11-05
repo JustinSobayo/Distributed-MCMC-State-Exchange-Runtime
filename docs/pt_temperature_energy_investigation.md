@@ -38,9 +38,11 @@ with `T` supplied per replica (adapter `get/set_temperature`), leaving the rest 
 
 ## Status
 
-- Accept site located; preferred science hook is Option A, but it is not implemented because Niya's source is immutable.
-- Adapter implements Option B: temperature metadata plus energy reporting.
-- A future approved adapter/subclass hook is required for scientifically tempered local acceptance.
+- **Option A implemented** in the bundled science copy `MCMC_implementation/gstatsMCMC/MCMC.py`:
+  `chain_crf.run`, `chain_sgs.run`, and `chain_sgs.run_newsgs` take `temperature=1.0`
+  and use `min(1, exp((loss_prev - loss_next) / T))`.
+- `TopographyMCMCAdapter.run_batch` passes `self._temperature` into `chain.run`.
+- `T=1` (default) matches prior untempered behavior; `T>1` loosens uphill accepts.
 
 ## Related reproducibility note
 
