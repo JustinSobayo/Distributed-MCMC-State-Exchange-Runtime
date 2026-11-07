@@ -1,0 +1,27 @@
+# Bakari T3-style large-scale CRF baseline on Stancomb-Wills (single chain, T=1).
+# Uses TopographyMCMCAdapter + build_stancomb_crf_pair (same metrics protocol as synthetic).
+experiment:
+  name: single_chain_stancomb_crf_baseline
+  seed: 20251019          # matches T3 notebook seed
+  rng_seed: 20251019
+  rf_seed: 20251020
+science:
+  problem: stancomb
+  backend: cpu
+  config: null
+  data_dir: MCMC_implementation/data
+  sigma_mc: 3.0             # T3 set_loss_type(..., sigma_mc=3)
+  # rows/cols/resolution are ignored for stancomb (taken from the CSV grid).
+  rows: 24
+  cols: 24
+  resolution: 500.0
+sampling:
+  temperature: 1.0
+  batch_n_iterations: 21    # 20 proposals per batch (Niya run(n) = n-1 proposals)
+  num_batches: 10           # 200 proposals — short metric run; raise for paper baselines
+  budget_mode: proposals
+logging:
+  terminal: true
+  log_every_batches: 1
+runtime:
+  output_dir: results/single_chain_stancomb_crf_baseline

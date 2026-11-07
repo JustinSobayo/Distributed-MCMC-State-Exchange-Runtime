@@ -64,8 +64,16 @@ def _validated_config(config: dict[str, Any]) -> dict[str, Any]:
     """Normalize defaults and refuse settings that would mislabel the run."""
     defaults = {
         "experiment": {"name": "single_chain_cold_baseline", "seed": 1234},
-        "science": {"problem": "synthetic", "backend": "cpu", "config": None,
-                    "rows": 24, "cols": 24, "resolution": 500.0},
+        "science": {
+            "problem": "synthetic",
+            "backend": "cpu",
+            "config": None,
+            "rows": 24,
+            "cols": 24,
+            "resolution": 500.0,
+            "data_dir": "MCMC_implementation/data",
+            "sigma_mc": 3.0,
+        },
         "sampling": {"temperature": 1.0, "batch_n_iterations": 51,
                      "num_batches": 40, "budget_mode": "proposals"},
         "logging": {"terminal": True, "log_every_batches": 1},
@@ -93,13 +101,22 @@ def _validated_config(config: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("science.backend must be cpu or cuda")
     if science["backend"] == "cuda":
         raise ValueError("CUDA baseline is not wired to the adapter yet; use backend: cpu")
-    if science["problem"] != "synthetic" or science["config"] is not None:
-        raise ValueError("only problem: synthetic with science.config: null is wired; Stancomb is deferred")
-    for axis in ("rows", "cols"):
-        _integer(science[axis], f"science.{axis}", 8)
-    resolution = science["resolution"]
-    if isinstance(resolution, bool) or not isinstance(resolution, (int, float)) or not math.isfinite(resolution) or resolution <= 0:
-        raise ValueError("science.resolution must be positive and finite")
+    if science["problem"] not in ("synthetic", "stancomb"):
+        raise ValueError("science.problem must be synthetic or stancomb")
+    if science["config"] is not None:
+        raise ValueError("science.config must be null for the shipped builders")
+    if not isinstance(science["data_dir"], str) or not science["data_dir"].strip():
+        raise ValueError("science.data_dir must be a nonempty path")
+    sigma_mc = science["sigma_mc"]
+    if isinstance(sigma_mc, bool) or not isinstance(sigma_mc, (int, float)) or not math.isfinite(sigma_mc) or sigma_mc <= 0:
+        raise ValueError("science.sigma_mc must be a positive finite number")
+    science["sigma_mc"] = float(sigma_mc)
+    if science["problem"] == "synthetic":
+        for axis in ("rows", "cols"):
+            _integer(science[axis], f"science.{axis}", 8)
+        resolution = science["resolution"]
+        if isinstance(resolution, bool) or not isinstance(resolution, (int, float)) or not math.isfinite(resolution) or resolution <= 0:
+            raise ValueError("science.resolution must be positive and finite")
     temperature = sampling["temperature"]
     if isinstance(temperature, bool) or not isinstance(temperature, (int, float)) or temperature != 1.0:
         raise ValueError("single-chain cold baseline requires sampling.temperature: 1.0")
@@ -170,6 +187,7 @@ def run_baseline(config_path: Path | str, *, output_dir: Path | str | None = Non
         output = REPO_ROOT / output
     output.mkdir(parents=True, exist_ok=True)
 
+    from adapters.stancomb_crf import build_stancomb_crf_pair
     from adapters.topography_mcmc_adapter import TopographyMCMCAdapter, build_synthetic_crf_pair
 
     exp, science, sampling, logging = (config[k] for k in ("experiment", "science", "sampling", "logging"))
@@ -177,10 +195,21 @@ def run_baseline(config_path: Path | str, *, output_dir: Path | str | None = Non
     # The scientific constructors print usage instructions unconditionally.
     # Keep the CLI output limited to the stable benchmark metrics lines.
     with redirect_stdout(io.StringIO()):
-        chain, rf = build_synthetic_crf_pair(
-            rows=science["rows"], cols=science["cols"], resolution=science["resolution"],
-            chain_seed=exp["rng_seed"], rf_seed=exp["rf_seed"],
-        )
+        if science["problem"] == "synthetic":
+            chain, rf = build_synthetic_crf_pair(
+                rows=science["rows"],
+                cols=science["cols"],
+                resolution=science["resolution"],
+                chain_seed=exp["rng_seed"],
+                rf_seed=exp["rf_seed"],
+            )
+        else:
+            chain, rf = build_stancomb_crf_pair(
+                data_dir=science["data_dir"],
+                sigma_mc=science["sigma_mc"],
+                chain_seed=exp["rng_seed"],
+                rf_seed=exp["rf_seed"],
+            )
     adapter = TopographyMCMCAdapter()
     adapter.initialize(chain, rf, rng_seed=exp["rng_seed"], temperature=1.0)
     fingerprint = build_fingerprint(config, adapter, config_path, raw)
