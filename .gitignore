@@ -20,6 +20,10 @@ cmake-build-*/
 results/*
 !results/.gitkeep
 
+# Dated benchmark archives (keep the folder README in git)
+benchmarks/*
+!benchmarks/README.md
+
 # IDE
 .vscode/
 .idea/

@@ -14,6 +14,8 @@ Project integration is organized as:
 
 Project notes and plans live in this folder:
 
+- `benchmark_metrics.md` — glossary of wall time, \(E\), \(a_{\mathrm{local}}\), \(a_{\mathrm{swap}}\), fingerprint (what we track and why)
+- `../benchmarks/README.md` — dated run archive layout; points at the metrics glossary
 - `single_chain_baseline.md` — runnable synthetic CPU cold baseline, metrics, fingerprints, and output protocol
 - `python_pt_coordinator.md` — Python two-replica PT loop (swap math, launcher, metrics)
 - `parallel_tempering_implementation_plan.md` — locked PT engineering decisions and build order

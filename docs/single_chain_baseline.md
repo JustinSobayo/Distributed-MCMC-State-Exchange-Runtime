@@ -3,7 +3,8 @@
 This harness establishes a reproducible single-chain, T=1 cold baseline for
 later parallel-tempering comparisons. It records running local acceptance,
 refreshed untempered energy, wall time, proposals/sec, and a software/config
-fingerprint. The shipped problem is **synthetic**, not Stancomb-Wills.
+fingerprint. Shipped problems: **synthetic** (default) and **stancomb** (Bakari T3
+large-scale CRF via `build_stancomb_crf_pair`).
 
 From the repository root, in the scientific Python environment:
 
@@ -11,6 +12,10 @@ From the repository root, in the scientific Python environment:
 python -m pip install -r MCMC_implementation/requirements-baseline.txt
 python MCMC_implementation/scripts/run_single_chain_baseline.py \
   --config MCMC_implementation/configs/single_chain_cold_baseline.yaml
+
+# Bakari-path Stancomb CRF baseline (needs data/StancombWillsDataGridded.csv + sgs_bed.txt)
+python MCMC_implementation/scripts/run_single_chain_baseline.py \
+  --config MCMC_implementation/configs/single_chain_stancomb_crf_baseline.yaml
 ```
 
 The profile runs 40 batches of 51 iterations, totaling **2,000 proposals**.
@@ -60,8 +65,8 @@ python -m unittest discover -s MCMC_implementation/tests \
 python -m pytest MCMC_implementation/tests
 ```
 
-`backend: cuda` and `problem: stancomb` are reserved but fail explicitly until
-their builders/adapters are wired. The current adapter uses the repository-local
-CPU scientific package. Use the same backend, grid, problem, and timing budget
-for later PT comparisons; synthetic CPU results do not establish GPU or
-Stancomb PT gains. Coordinator and swaps are outside this deliverable.
+`backend: cuda` still fails explicitly until wired. `problem: stancomb` loads the
+T3-equivalent builder (`adapters/stancomb_crf.py`) with fixed T3 variogram
+parameters and `sigma_mc: 3`. Grid shape comes from the CSV, not YAML
+`rows`/`cols`. Use the same metrics protocol for later PT comparisons on
+Stancomb. Coordinator and swaps are outside this deliverable.
