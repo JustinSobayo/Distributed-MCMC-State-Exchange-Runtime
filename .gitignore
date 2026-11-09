@@ -27,3 +27,5 @@ benchmarks/*
 # IDE
 .vscode/
 .idea/
+# Linux documentation
+docs/Linux/
