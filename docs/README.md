@@ -15,8 +15,12 @@ Project integration is organized as:
 Project notes and plans live in this folder:
 
 - `benchmark_metrics.md` — glossary of wall time, \(E\), \(a_{\mathrm{local}}\), \(a_{\mathrm{swap}}\), fingerprint (what we track and why)
-- `../benchmarks/README.md` — dated run archive layout; points at the metrics glossary
-- `single_chain_baseline.md` — runnable synthetic CPU cold baseline, metrics, fingerprints, and output protocol
+- `../benchmarks/README.md` — dated **run archives** only (not the Python harness under `MCMC_implementation/benchmarks/`)
+- `../figures/README.md` — Justin’s generated viz outputs (Bakari PNGs stay in `MCMC_implementation/figures/`)
+- `stancomb_single_chain_visualization_plan.md` — plot energy/accept from local Stancomb single-chain archive
+- `stancomb_two_replica_pt_enablement_plan.md` — why Stancomb PT is blocked + how to wire dual-cold/PT
+- `benchmark_figures_implementation_plan.md` — later PT vs dual-cold energy-trace figures
+- `single_chain_baseline.md` — runnable cold baseline harness (synthetic + stancomb), metrics, fingerprints
 - `python_pt_coordinator.md` — Python two-replica PT loop (swap math, launcher, metrics)
 - `parallel_tempering_implementation_plan.md` — locked PT engineering decisions and build order
 - `notes.md` — working notes / Stancomb orientation

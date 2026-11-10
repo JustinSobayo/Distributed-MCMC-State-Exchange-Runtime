@@ -25,7 +25,8 @@ T3_VARIOGRAM_PARAMS = (135866.77378305534, 2.2455698864420484, 3.038653872208876
 DEFAULT_DATA_DIR = _PKG_ROOT / "data"
 
 
-def _resolve_data_dir(data_dir: str | Path | None) -> Path:
+def resolve_data_dir(data_dir: str | Path | None) -> Path:
+    """Resolve Stancomb data directory from absolute or repo-relative paths."""
     if data_dir is None:
         return DEFAULT_DATA_DIR
     path = Path(data_dir)
@@ -39,6 +40,10 @@ def _resolve_data_dir(data_dir: str | Path | None) -> Path:
         if candidate.is_dir():
             return candidate
     return path.resolve()
+
+
+# Backward-compatible private alias.
+_resolve_data_dir = resolve_data_dir
 
 
 def load_stancomb_maps(data_dir: str | Path | None = None) -> dict[str, Any]:

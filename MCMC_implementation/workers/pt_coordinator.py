@@ -15,7 +15,9 @@ from typing import Any
 import numpy as np
 import yaml
 
+from adapters.stancomb_crf import resolve_data_dir
 from workers.exchange import ExchangeDecision, decide_temperature_exchange
+from workers.problem_factory import science_fingerprint
 from workers.protocol import ProtocolError, read_frame, write_frame
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -27,6 +29,7 @@ class WorkerConn:
     reader: asyncio.StreamReader
     writer: asyncio.StreamWriter
     temperature: float
+    science: dict[str, Any]
 
 
 def load_pt_config(path: Path) -> tuple[dict[str, Any], bytes]:
@@ -44,6 +47,8 @@ def validate_pt_config(config: dict[str, Any]) -> dict[str, Any]:
             "problem": "synthetic",
             "backend": "cpu",
             "config": None,
+            "data_dir": "MCMC_implementation/data",
+            "sigma_mc": 3.0,
             "rows": 24,
             "cols": 24,
             "resolution": 500.0,
@@ -95,8 +100,38 @@ def validate_pt_config(config: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("science.backend must be cpu or cuda")
     if science["backend"] == "cuda":
         raise ValueError("CUDA PT is not wired yet; use backend: cpu")
-    if science["problem"] != "synthetic" or science["config"] is not None:
-        raise ValueError("only problem: synthetic with science.config: null is wired")
+    if science["config"] is not None:
+        raise ValueError("science.config must be null for the shipped builders")
+    if science["problem"] not in ("synthetic", "stancomb"):
+        raise ValueError("science.problem must be synthetic or stancomb")
+    if not isinstance(science["data_dir"], str) or not science["data_dir"].strip():
+        raise ValueError("science.data_dir must be a nonempty path")
+    sigma_mc = science["sigma_mc"]
+    if isinstance(sigma_mc, bool) or not isinstance(sigma_mc, (int, float)) or not math.isfinite(sigma_mc) or sigma_mc <= 0:
+        raise ValueError("science.sigma_mc must be a positive finite number")
+    science["sigma_mc"] = float(sigma_mc)
+    if science["problem"] == "synthetic":
+        for axis in ("rows", "cols"):
+            _int(science[axis], f"science.{axis}", 8)
+        resolution = science["resolution"]
+        if (
+            isinstance(resolution, bool)
+            or not isinstance(resolution, (int, float))
+            or not math.isfinite(resolution)
+            or resolution <= 0
+        ):
+            raise ValueError("science.resolution must be positive and finite")
+    else:
+        data_root = resolve_data_dir(science["data_dir"])
+        if not data_root.is_dir():
+            raise ValueError(f"science.data_dir is not a directory: {data_root}")
+        csv_path = data_root / "StancombWillsDataGridded.csv"
+        bed_path = data_root / "sgs_bed.txt"
+        if not csv_path.is_file():
+            raise ValueError(f"Stancomb CSV missing under data_dir: {csv_path}")
+        if not bed_path.is_file():
+            raise ValueError(f"Stancomb sgs_bed.txt missing under data_dir: {bed_path}")
+        science["data_dir"] = str(data_root)
 
     replicas = _int(sampling["replicas"], "sampling.replicas", 2)
     if replicas != 2:
@@ -204,11 +239,27 @@ class PTCoordinator:
                 or temperature <= 0
             ):
                 raise ProtocolError("REGISTER.temperature must be a positive number")
+            science = {
+                "problem": register.get("problem"),
+                "bed_shape": register.get("bed_shape"),
+                "data_dir": register.get("data_dir"),
+                "sigma_mc": register.get("sigma_mc"),
+            }
+            if science["problem"] not in ("synthetic", "stancomb"):
+                raise ProtocolError("REGISTER.problem must be synthetic or stancomb")
+            shape = science["bed_shape"]
+            if (
+                not isinstance(shape, list)
+                or len(shape) != 2
+                or any(isinstance(x, bool) or not isinstance(x, int) or x < 1 for x in shape)
+            ):
+                raise ProtocolError("REGISTER.bed_shape must be [rows, cols] positive ints")
             self.workers[replica_id] = WorkerConn(
                 replica_id=replica_id,
                 reader=reader,
                 writer=writer,
                 temperature=float(temperature),
+                science=science,
             )
             await write_frame(writer, {"type": "REGISTER_ACK", "ok": True})
             if len(self.workers) == 2:
@@ -235,6 +286,38 @@ class PTCoordinator:
                 f"replica {worker.replica_id} reported failure: {reply.get('message')}"
             )
         return reply
+
+    def _assert_matching_science(self) -> dict[str, Any]:
+        """Require identical worker science fingerprints matching the YAML problem."""
+        workers = [self.workers[rid] for rid in self.ordered_ids]
+        fingerprints = [science_fingerprint(w.science) for w in workers]
+        if len(set(fingerprints)) != 1:
+            raise RuntimeError(
+                "worker science fingerprints disagree: "
+                + ", ".join(f"replica {w.replica_id}={w.science}" for w in workers)
+            )
+        meta = dict(workers[0].science)
+        expected_problem = self.config["science"]["problem"]
+        if meta["problem"] != expected_problem:
+            raise RuntimeError(
+                f"workers registered problem={meta['problem']!r} but config has {expected_problem!r}"
+            )
+        if expected_problem == "stancomb":
+            expected_dir = str(resolve_data_dir(self.config["science"]["data_dir"]))
+            expected_sigma = float(self.config["science"]["sigma_mc"])
+            if meta.get("data_dir") != expected_dir:
+                raise RuntimeError(
+                    f"worker data_dir {meta.get('data_dir')!r} != config {expected_dir!r}"
+                )
+            if meta.get("sigma_mc") != expected_sigma:
+                raise RuntimeError(
+                    f"worker sigma_mc {meta.get('sigma_mc')!r} != config {expected_sigma!r}"
+                )
+            if tuple(meta["bed_shape"]) != (500, 500):
+                raise RuntimeError(
+                    f"Stancomb bed_shape expected [500, 500], got {meta['bed_shape']}"
+                )
+        return meta
 
     async def _assign_initial_temperatures(self) -> None:
         temps = list(self.config["sampling"]["temperatures"])
@@ -362,6 +445,15 @@ class PTCoordinator:
                 raise RuntimeError(f"worker registration failed: {self._client_errors[0]}")
             if len(self.workers) != 2:
                 raise RuntimeError(f"expected 2 workers, registered {len(self.workers)}")
+            science_meta = self._assert_matching_science()
+            if self.config["logging"]["terminal"]:
+                print(
+                    f"PT science fingerprint ok: problem={science_meta['problem']} "
+                    f"bed_shape={science_meta['bed_shape']} "
+                    f"data_dir={science_meta.get('data_dir')} "
+                    f"sigma_mc={science_meta.get('sigma_mc')}",
+                    flush=True,
+                )
             await self._assign_initial_temperatures()
             rounds = self.config["sampling"]["rounds"]
             log_every = self.config["logging"]["log_every_rounds"]
@@ -395,6 +487,9 @@ class PTCoordinator:
             server.close()
             await server.wait_closed()
 
+        science_meta = {
+            rid: self.workers[rid].science for rid in self.ordered_ids
+        } if self.workers else {}
         summary = {
             "experiment_name": self.config["experiment"]["name"],
             "rounds": self.config["sampling"]["rounds"],
@@ -407,6 +502,7 @@ class PTCoordinator:
                 str(rid): self.workers[rid].temperature for rid in self.ordered_ids
             },
             "cold_worker": self._cold_worker_id(),
+            "science": science_meta.get(self.ordered_ids[0]) if self.ordered_ids else None,
             "resolved_config": self.config,
         }
         (output_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")

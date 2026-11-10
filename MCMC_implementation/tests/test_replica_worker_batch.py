@@ -54,7 +54,11 @@ def test_worker_outbound_batch_temperature_and_shutdown_round_trip():
                 worker.cancel()
 
         initial, after_batch, after_temperature, shutdown = results
-        assert register == {"type": "REGISTER", "replica_id": 7, "temperature": 1.0}
+        assert register["type"] == "REGISTER"
+        assert register["replica_id"] == 7
+        assert register["temperature"] == 1.0
+        assert register["problem"] == "synthetic"
+        assert register["bed_shape"] == [24, 24]
         assert initial["ok"] and initial["energy"] is None
         assert after_batch["ok"] and after_batch["energy"] is not None
         assert after_batch["proposals_completed"] == 2
