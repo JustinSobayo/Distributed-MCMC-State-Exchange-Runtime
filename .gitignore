@@ -20,9 +20,15 @@ cmake-build-*/
 results/*
 !results/.gitkeep
 
-# Dated benchmark archives (keep the folder README in git)
+# Dated benchmark archives (keep index + per-run README stubs in git)
 benchmarks/*
 !benchmarks/README.md
+!benchmarks/**/README.md
+
+# Justin-owned generated plots (keep folder + index in git)
+figures/*
+!figures/README.md
+!figures/.gitkeep
 
 # IDE
 .vscode/

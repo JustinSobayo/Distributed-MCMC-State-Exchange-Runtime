@@ -1,11 +1,17 @@
-# Benchmarks
+# Benchmarks (run archives only)
 
 **This folder** holds dated experiment archives and this index.  
-**Metric definitions** (what each number means and why we track it) live in:
+**Metric definitions** live in [`docs/benchmark_metrics.md`](../docs/benchmark_metrics.md).
 
-→ [`docs/benchmark_metrics.md`](../docs/benchmark_metrics.md)
+There are **two different “benchmark” paths** in the repo — do not mix them:
 
-Read that glossary before comparing runs or writing poster text.
+| Path | Role |
+| --- | --- |
+| `benchmarks/` **(here)** | Dated **run outputs** (CSV/JSON fingerprints) for plots and papers |
+| `MCMC_implementation/benchmarks/` | **Python harness code** (`single_chain_baseline.py`), not results |
+
+Justin’s generated plots go in repo-root [`figures/`](../figures/README.md).  
+Bakari/notebook PNGs stay in `MCMC_implementation/figures/`.
 
 ---
 
@@ -13,53 +19,49 @@ Read that glossary before comparing runs or writing poster text.
 
 ```text
 benchmarks/
-  README.md                 ← you are here
-  YYYYMMDD_HHMMSS_*/        ← one folder per campaign (copy of results/)
-    README.md               ← optional: 3–5 lines on what this run is / is not
-    single_chain_.../
-    two_replica_baseline_cold/
-    two_replica_pt_synthetic/
-    stancomb_.../           ← later
+  README.md
+  YYYYMMDD_HHMMSS_TAG_description/
+    README.md              ← 3–5 lines: what this is / is not
+    batch_metrics.csv      ← or round_metrics.* for PT
+    summary.json
+    fingerprint.json
 ```
 
-On HiPerGator, keep the same structure under Blue, e.g.
+Copy HiPerGator `results/...` here with `rsync`/`scp` (do not git-commit huge beds).
+Small metric folders may stay local; `benchmarks/*` is gitignored except this README
+and per-run README files if you force-add them.
 
-`/blue/gly4930/justinsobayo/mcmc_runtime/benchmarks/`
+On HiPerGator Blue you can mirror the same tree under
+`/blue/gly4930/justinsobayo/mcmc_runtime/benchmarks/`.
 
-Copy this README there if that tree is outside the git clone:
+---
 
-```bash
-cp benchmarks/README.md /blue/gly4930/justinsobayo/mcmc_runtime/benchmarks/
-```
+## Current archives
+
+| Folder | Tag | Notes |
+| --- | --- | --- |
+| `20261110_094921_BASELINE_stancomb_single_cold/` | BASELINE | Stancomb T=1 single chain, 200 proposals smoke |
 
 ---
 
 ## Metrics we track (short list)
 
 | Metric | Why |
-|--------|-----|
-| Wall time | How long the run took on the clock (cost) |
-| Proposal budget / propos/s | Fair work comparison and throughput |
-| Energy \(E\) (+ trajectory) | Did the chain move? Cold exploration proxy |
-| \(a_{\mathrm{local}}\) | Local MH health (diagnostic, not the PT trophy) |
+| --- | --- |
+| Wall time | Cost |
+| Proposal budget / propos/s | Fair work / throughput |
+| Energy \(E\) (+ trajectory) | Cold exploration proxy |
+| \(a_{\mathrm{local}}\) | Local MH health (diagnostic) |
 | \(a_{\mathrm{swap}}\) | PT ladder health (diagnostic) |
-| \(T\) / cold worker id | Which replica is the scientific cold target |
-| Fingerprint | Reproducibility for the paper |
-
-Full definitions: [`docs/benchmark_metrics.md`](../docs/benchmark_metrics.md).
+| \(T\) / cold worker id | Scientific cold target |
+| Fingerprint | Reproducibility |
 
 ---
 
 ## Label runs honestly
 
-| Tag in folder name or note | Meaning |
-|----------------------------|---------|
-| `INTEGRATION` | Plumbing works; not a mixing claim (e.g. toy synthetic, \(a_{\mathrm{local}}=1\)) |
-| `BASELINE` | Bakari-path or equal-resource cold reference |
-| `PT` | Temperature-exchange experiment to compare to baseline |
-
-Example rename on Blue:
-
-```bash
-mv benchmarks/20261106_232021 benchmarks/20261106_232021_INTEGRATION_synthetic
-```
+| Tag | Meaning |
+| --- | --- |
+| `INTEGRATION` | Plumbing works; not a mixing claim |
+| `BASELINE` | Cold reference (single or dual) |
+| `PT` | Temperature-exchange experiment |
