@@ -66,6 +66,7 @@ def validate_pt_config(config: dict[str, Any]) -> dict[str, Any]:
             "coordinator_host": "127.0.0.1",
             "coordinator_port": 5000,
             "round_timeout_seconds": 600,
+            "register_timeout_seconds": 1800,
             "output_dir": "results/two_replica_pt_synthetic",
         },
     }
@@ -177,6 +178,13 @@ def validate_pt_config(config: dict[str, Any]) -> dict[str, Any]:
         or runtime["round_timeout_seconds"] <= 0
     ):
         raise ValueError("runtime.round_timeout_seconds must be positive")
+    if (
+        isinstance(runtime["register_timeout_seconds"], bool)
+        or not isinstance(runtime["register_timeout_seconds"], (int, float))
+        or not math.isfinite(runtime["register_timeout_seconds"])
+        or runtime["register_timeout_seconds"] <= 0
+    ):
+        raise ValueError("runtime.register_timeout_seconds must be positive")
     if not isinstance(runtime["output_dir"], str) or not runtime["output_dir"].strip():
         raise ValueError("runtime.output_dir must be a nonempty path")
     return resolved
@@ -440,7 +448,21 @@ class PTCoordinator:
             )
 
         try:
-            await asyncio.wait_for(self._register_event.wait(), timeout=120.0)
+            register_timeout = float(self.config["runtime"]["register_timeout_seconds"])
+            if self.config["logging"]["terminal"]:
+                print(
+                    f"PT coordinator waiting up to {register_timeout:.0f}s for 2 REGISTER frames "
+                    "(Stancomb chain build can exceed a couple minutes)",
+                    flush=True,
+                )
+            try:
+                await asyncio.wait_for(self._register_event.wait(), timeout=register_timeout)
+            except TimeoutError as exc:
+                raise TimeoutError(
+                    f"timed out after {register_timeout:.0f}s waiting for worker REGISTER "
+                    f"(got {len(self.workers)}/2). Stancomb setup is slow; raise "
+                    "runtime.register_timeout_seconds or check worker logs."
+                ) from exc
             if self._client_errors:
                 raise RuntimeError(f"worker registration failed: {self._client_errors[0]}")
             if len(self.workers) != 2:

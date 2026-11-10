@@ -31,4 +31,5 @@ runtime:
   coordinator_host: 127.0.0.1
   coordinator_port: 0
   round_timeout_seconds: 3600
+  register_timeout_seconds: 1800   # Stancomb CRF setup often >120s per worker
   output_dir: results/two_replica_stancomb_baseline_cold
