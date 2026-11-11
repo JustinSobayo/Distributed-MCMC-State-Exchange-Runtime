@@ -36,14 +36,27 @@ python MCMC_implementation/scripts/run_two_replica_pt.py \
   --config MCMC_implementation/configs/two_replica_baseline_cold.yaml
 ```
 
+Stancomb dual-cold and PT (short smoke budgets; raise `rounds` / `batch_n_iterations` later):
+
+```bash
+python MCMC_implementation/scripts/run_two_replica_pt.py \
+  --config MCMC_implementation/configs/two_replica_stancomb_baseline_cold.yaml
+
+python MCMC_implementation/scripts/run_two_replica_pt.py \
+  --config MCMC_implementation/configs/two_replica_stancomb_pt.yaml
+```
+
 Workers are launched as **separate processes** (required: spectral RNG overlay
-is process-global).
+is process-global). Both workers receive identical science settings
+(`--problem`, `--data-dir`, `--sigma-mc`); only seeds / replica id / temperature differ.
+On REGISTER the coordinator checks matching science fingerprints (`problem`,
+`bed_shape`, `data_dir`, `sigma_mc`).
 
 ## Outputs
 
 Under the configured `runtime.output_dir`:
 
-- `summary.json` — swap attempts/accepts, `a_swap`, final T map
+- `summary.json` — swap attempts/accepts, `a_swap`, final T map, science fingerprint
 - `round_metrics.json` / `.csv` — per-round \(E\), \(T\), `a_local`, `p_swap`, timings
 - `resolved_launch_config.yaml` — config with the bound coordinator port
 
@@ -51,5 +64,6 @@ Under the configured `runtime.output_dir`:
 
 ```bash
 cd MCMC_implementation
-python -m unittest tests.test_pt_exchange tests.test_pt_coordinator_loop -v
+python -m unittest tests.test_pt_exchange tests.test_pt_coordinator_loop \
+  tests.test_stancomb_pt_enablement -v
 ```
