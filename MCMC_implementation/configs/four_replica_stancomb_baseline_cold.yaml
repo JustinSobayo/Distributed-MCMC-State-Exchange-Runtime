@@ -1,6 +1,5 @@
-# Phase A equal-resource control: 4 independent T=1 chains, exchange OFF.
+# 4-replica equal-resource control: four independent T=1 chains, exchange OFF.
 # Matched replicas/rounds/batch with four_replica_stancomb_pt.yaml.
-# NOT runnable on MVP coordinator until replicas>2 is implemented.
 experiment:
   name: four_replica_stancomb_baseline_cold
   seed: 20251019
@@ -20,17 +19,17 @@ sampling:
   replicas: 4
   temperatures: [1.0, 1.0, 1.0, 1.0]
   batch_n_iterations: 101
-  rounds: 600
+  rounds: 2000
   warmup_rounds: 0
 exchange:
   enabled: false
   pairing: neighbor_odd_even
 logging:
   terminal: true
-  log_every_rounds: 10
+  log_every_rounds: 20
 runtime:
   coordinator_host: 127.0.0.1
   coordinator_port: 0
   round_timeout_seconds: 3600
-  register_timeout_seconds: 1800
-  output_dir: results/four_replica_stancomb_baseline_cold_r600
+  register_timeout_seconds: 3600   # 4× Stancomb setup can be slow
+  output_dir: results/four_replica_stancomb_baseline_cold_r2000

@@ -1,8 +1,5 @@
-# Phase A target: 4-replica Stancomb PT ladder (NOT runnable on MVP yet).
-# MVP pt_coordinator requires sampling.replicas==2 / pairing tworeplica.
-# Science intent: cold T=1, hotter T_max=1.35, intermediates so neighbor
-# a_swap stays ~0.2–0.4 (unlike dead 2-rung [1,1.5] / [1,1.2]).
-# Matched budget with four_replica_stancomb_baseline_cold.yaml.
+# 4-replica Stancomb PT ladder: cold T=1 → T_max=1.35, neighbor odd/even swaps.
+# Long grocery-run budget (matched with four_replica_stancomb_baseline_cold.yaml).
 experiment:
   name: four_replica_stancomb_pt
   seed: 20251019
@@ -22,17 +19,17 @@ sampling:
   replicas: 4
   temperatures: [1.0, 1.05, 1.15, 1.35]
   batch_n_iterations: 101   # Niya run(n) → n-1 = 100 proposals per round
-  rounds: 600
+  rounds: 2000
   warmup_rounds: 0
 exchange:
   enabled: true
-  pairing: neighbor_odd_even   # Phase A: implement in coordinator
+  pairing: neighbor_odd_even
 logging:
   terminal: true
-  log_every_rounds: 10
+  log_every_rounds: 20
 runtime:
   coordinator_host: 127.0.0.1
   coordinator_port: 0
   round_timeout_seconds: 3600
-  register_timeout_seconds: 1800
-  output_dir: results/four_replica_stancomb_pt_r600_T1.35
+  register_timeout_seconds: 3600   # 4× Stancomb setup can be slow
+  output_dir: results/four_replica_stancomb_pt_r2000_T1.35

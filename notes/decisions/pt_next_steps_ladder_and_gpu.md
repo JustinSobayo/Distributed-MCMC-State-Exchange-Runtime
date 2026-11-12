@@ -16,17 +16,18 @@
 
 **Goal:** Keep cold at \(T=1\), raise \(T_\max\), keep **neighbor** `a_swap ~ 0.2–0.4`.
 
-Blocked today: MVP coordinator hard-requires `sampling.replicas: 2` and `exchange.pairing: two_replica`.
+**Code status (in progress):** coordinator + launcher accept `N≥2` with
+`exchange.pairing: neighbor_odd_even` (and legacy `two_replica` for N=2).
+Configs:
 
-Implement:
+- `MCMC_implementation/configs/four_replica_stancomb_pt.yaml` → `T=[1.0, 1.05, 1.15, 1.35]`
+- `MCMC_implementation/configs/four_replica_stancomb_baseline_cold.yaml` → four×`T=1`
 
-1. Generalize coordinator + launcher to `N≥2` workers.
-2. Neighbor-only swap schedule (odd/even pairing each round).
-3. Configs already drafted (coordinator will reject until N>2 lands):
-   - `MCMC_implementation/configs/four_replica_stancomb_pt.yaml` → `T=[1.0, 1.05, 1.15, 1.35]`
-   - `MCMC_implementation/configs/four_replica_stancomb_baseline_cold.yaml` → four×`T=1`
-4. Metrics per adjacent pair: `a_swap[i,i+1]`, cold round-trips, cold energy vs equal-resource N-cold baseline.
-5. Success = connected ladder + cold mixing better than dual/N-cold at matched total proposals — not raw headline `a_swap`.
+Still to do after dual-cold r600 lands:
+
+1. Synthetic 4-replica smoke on login/compute, then short Stancomb 4-replica pilot.
+2. Metrics per adjacent pair (`a_swap_by_edge` in summary), cold round-trips vs 4-cold baseline.
+3. Success = connected ladder + cold mixing better than equal-resource N-cold — not raw headline `a_swap`.
 
 Literature anchors: Kone & Kofke / Atchadé (~0.23 neighbor swaps); Vousden–Farr–Mandel (uniform neighbor acceptance / adaptive spacing).
 
