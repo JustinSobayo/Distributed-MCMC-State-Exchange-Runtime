@@ -1,5 +1,5 @@
 # 4-replica equal-resource control: four independent T=1 chains, exchange OFF.
-# Matched replicas/rounds/batch with four_replica_stancomb_pt.yaml.
+# Matched replicas/rounds/batch with four_replica_stancomb_pt.yaml (T1.10 ladder).
 experiment:
   name: four_replica_stancomb_baseline_cold
   seed: 20251019
@@ -32,4 +32,4 @@ runtime:
   coordinator_port: 0
   round_timeout_seconds: 3600
   register_timeout_seconds: 3600   # 4× Stancomb setup can be slow
-  output_dir: results/four_replica_stancomb_baseline_cold_r2000
+  output_dir: results/four_replica_stancomb_baseline_cold_r2000_T1.10match

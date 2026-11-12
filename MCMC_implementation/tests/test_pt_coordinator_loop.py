@@ -114,7 +114,7 @@ def test_validate_four_replica_pt_config():
         {
             "sampling": {
                 "replicas": 4,
-                "temperatures": [1.0, 1.05, 1.15, 1.35],
+                "temperatures": [1.0, 1.02, 1.05, 1.10],
                 "rounds": 1,
                 "batch_n_iterations": 3,
             },
@@ -146,7 +146,7 @@ def test_four_replica_pt_launcher_smoke():
             },
             "sampling": {
                 "replicas": 4,
-                "temperatures": [1.0, 1.05, 1.15, 1.35],
+                "temperatures": [1.0, 1.02, 1.05, 1.10],
                 "batch_n_iterations": 3,
                 "rounds": 2,
                 "warmup_rounds": 0,
