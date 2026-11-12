@@ -1,5 +1,5 @@
-# Dual-cold Stancomb smoke: two independent T=1 workers, exchange OFF.
-# Matched budgets with two_replica_stancomb_pt.yaml for later energy-trace compares.
+# Dual-cold Stancomb control: two independent T=1 workers, exchange OFF.
+# Matched budgets with two_replica_stancomb_pt.yaml (T=[1.0, 1.2]) for compares.
 experiment:
   name: two_replica_stancomb_baseline_cold
   seed: 20251019
@@ -18,18 +18,18 @@ science:
 sampling:
   replicas: 2
   temperatures: [1.0, 1.0]
-  batch_n_iterations: 3      # 2 proposals/batch — short smoke; raise for real benchmarks
-  rounds: 2
+  batch_n_iterations: 101   # Niya run(n) → n-1 = 100 proposals per round
+  rounds: 200               # enough rounds for a readable energy trace
   warmup_rounds: 0
 exchange:
   enabled: false
   pairing: two_replica
 logging:
   terminal: true
-  log_every_rounds: 1
+  log_every_rounds: 10
 runtime:
   coordinator_host: 127.0.0.1
   coordinator_port: 0
   round_timeout_seconds: 3600
   register_timeout_seconds: 1800   # Stancomb CRF setup often >120s per worker
-  output_dir: results/two_replica_stancomb_baseline_cold
+  output_dir: results/two_replica_stancomb_baseline_cold_r200
