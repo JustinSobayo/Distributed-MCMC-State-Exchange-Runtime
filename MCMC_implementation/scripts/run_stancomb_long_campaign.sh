@@ -24,14 +24,14 @@ run_one () {
   echo "===== DONE  ${label}  $(date -Is) =====" | tee -a "$LOG"
 }
 
-run_one "four_replica_baseline_cold_r2000" \
+run_one "four_replica_baseline_cold_r2000_T1.10match" \
   "MCMC_implementation/configs/four_replica_stancomb_baseline_cold.yaml"
 
-run_one "four_replica_pt_r2000_T1.35" \
+run_one "four_replica_pt_r2000_T1.10" \
   "MCMC_implementation/configs/four_replica_stancomb_pt.yaml"
 
 echo "" | tee -a "$LOG"
 echo "campaign complete $(date -Is)" | tee -a "$LOG"
 echo "outputs:" | tee -a "$LOG"
-echo "  results/four_replica_stancomb_baseline_cold_r2000" | tee -a "$LOG"
-echo "  results/four_replica_stancomb_pt_r2000_T1.35" | tee -a "$LOG"
+echo "  results/four_replica_stancomb_baseline_cold_r2000_T1.10match" | tee -a "$LOG"
+echo "  results/four_replica_stancomb_pt_r2000_T1.10" | tee -a "$LOG"

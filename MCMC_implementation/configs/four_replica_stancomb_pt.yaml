@@ -1,5 +1,6 @@
-# 4-replica Stancomb PT ladder: cold T=1 → T_max=1.35, neighbor odd/even swaps.
-# Long grocery-run budget (matched with four_replica_stancomb_baseline_cold.yaml).
+# 4-replica Stancomb PT ladder: denser near T=1, milder T_max=1.10.
+# Prior [1.0, 1.05, 1.15, 1.35] froze after ~350 rounds (a_swap≈0.008).
+# Matched budget with four_replica_stancomb_baseline_cold.yaml.
 experiment:
   name: four_replica_stancomb_pt
   seed: 20251019
@@ -17,7 +18,7 @@ science:
   resolution: 500.0
 sampling:
   replicas: 4
-  temperatures: [1.0, 1.05, 1.15, 1.35]
+  temperatures: [1.0, 1.02, 1.05, 1.10]
   batch_n_iterations: 101   # Niya run(n) → n-1 = 100 proposals per round
   rounds: 2000
   warmup_rounds: 0
@@ -32,4 +33,4 @@ runtime:
   coordinator_port: 0
   round_timeout_seconds: 3600
   register_timeout_seconds: 3600   # 4× Stancomb setup can be slow
-  output_dir: results/four_replica_stancomb_pt_r2000_T1.35
+  output_dir: results/four_replica_stancomb_pt_r2000_T1.10

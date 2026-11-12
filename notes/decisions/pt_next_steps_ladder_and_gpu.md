@@ -20,8 +20,10 @@
 `exchange.pairing: neighbor_odd_even` (and legacy `two_replica` for N=2).
 Configs:
 
-- `MCMC_implementation/configs/four_replica_stancomb_pt.yaml` → `T=[1.0, 1.05, 1.15, 1.35]`
+- `MCMC_implementation/configs/four_replica_stancomb_pt.yaml` → `T=[1.0, 1.02, 1.05, 1.10]`
+  (replaced failed `[1.0, 1.05, 1.15, 1.35]` r2000 run with `a_swap≈0.008`)
 - `MCMC_implementation/configs/four_replica_stancomb_baseline_cold.yaml` → four×`T=1`
+  (matched out dir `…_r2000_T1.10match`)
 
 Still to do after dual-cold r600 lands:
 
