@@ -33,5 +33,12 @@ figures/*
 # IDE
 .vscode/
 .idea/
-# Linux documentation
+
+# Local Linux / Slurm notes (PDFs, cheat sheets)
 docs/Linux/
+docs/Linux + Slurm/
+
+# Local working drafts (not ready for remote)
+docs/stancomb_single_chain_visualization_plan.md
+docs/stancomb_two_replica_pt_enablement_plan.md
+
