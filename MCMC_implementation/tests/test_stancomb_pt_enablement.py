@@ -36,9 +36,10 @@ class ValidateStancombPTConfigTests(unittest.TestCase):
         self.assertEqual(cold["sampling"]["temperatures"], [1.0, 1.0])
         self.assertEqual(pt["science"]["problem"], "stancomb")
         self.assertTrue(pt["exchange"]["enabled"])
-        self.assertEqual(pt["sampling"]["temperatures"], [1.0, 2.0])
+        self.assertEqual(pt["sampling"]["temperatures"], [1.0, 1.01])
         self.assertEqual(cold["sampling"]["batch_n_iterations"], pt["sampling"]["batch_n_iterations"])
         self.assertEqual(cold["sampling"]["rounds"], pt["sampling"]["rounds"])
+        self.assertEqual(cold["sampling"]["rounds"], 600)
 
     def test_rejects_missing_stancomb_data_dir(self):
         with self.assertRaises(ValueError):

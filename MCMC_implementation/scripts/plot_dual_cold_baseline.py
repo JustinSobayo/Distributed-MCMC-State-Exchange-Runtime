@@ -93,7 +93,7 @@ def load_dual_cold_run(run_dir: Path) -> dict[str, Any]:
     }
 
 
-def plot_dual_cold(run: dict[str, Any], output_dir: Path) -> Path:
+def plot_dual_cold(run: dict[str, Any], output_dir: Path, stem: str = "dual_cold_stancomb_r600") -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     rounds = run["rounds"]
     summary = run["summary"]
@@ -144,9 +144,9 @@ def plot_dual_cold(run: dict[str, Any], output_dir: Path) -> Path:
         fontsize=9,
     )
 
-    out = output_dir / "dual_cold_stancomb_r200_trace.png"
+    out = output_dir / f"{stem}_trace.png"
     fig.savefig(out, dpi=160)
-    fig.savefig(output_dir / "dual_cold_stancomb_r200_trace.pdf")
+    fig.savefig(output_dir / f"{stem}_trace.pdf")
     plt.close(fig)
 
     meta = {
@@ -163,9 +163,7 @@ def plot_dual_cold(run: dict[str, Any], output_dir: Path) -> Path:
             "Use as the equal-resource baseline when a matched PT run is available."
         ),
     }
-    (output_dir / "dual_cold_stancomb_r200_summary.json").write_text(
-        json.dumps(meta, indent=2) + "\n"
-    )
+    (output_dir / f"{stem}_summary.json").write_text(json.dumps(meta, indent=2) + "\n")
     return out
 
 
@@ -174,16 +172,17 @@ def main() -> None:
     parser.add_argument(
         "--run-dir",
         type=Path,
-        default=REPO_ROOT / "benchmarks" / "two_replica_stancomb_baseline_cold_r200",
+        default=REPO_ROOT / "benchmarks" / "two_replica_stancomb_baseline_cold_r600",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=REPO_ROOT / "figures" / "dual_cold_stancomb_r200",
+        default=REPO_ROOT / "figures" / "dual_cold_stancomb_r600",
     )
+    parser.add_argument("--stem", type=str, default="dual_cold_stancomb_r600")
     args = parser.parse_args()
     run = load_dual_cold_run(args.run_dir)
-    out = plot_dual_cold(run, args.output_dir)
+    out = plot_dual_cold(run, args.output_dir, stem=args.stem)
     print(f"wrote {out}")
 
 
