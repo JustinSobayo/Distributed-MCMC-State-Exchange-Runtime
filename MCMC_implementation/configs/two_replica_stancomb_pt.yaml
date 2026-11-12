@@ -1,5 +1,7 @@
-# Two-replica Stancomb PT smoke: T in {1, 2}, exchange ON.
-# Same science + batch/rounds as two_replica_stancomb_baseline_cold.yaml.
+# Two-replica Stancomb PT: cold T=1 + hot T=1.01, exchange ON.
+# Swap-health diagnostic: r200 at T=1.5 and T=1.2 both gave a_swap=0.01 because
+# |E_cold-E_hot| stays hundreds of units → need much closer neighbors for
+# a_swap~0.2–0.4 with only 2 replicas. Same budget as baseline_cold.
 experiment:
   name: two_replica_stancomb_pt
   seed: 20251019
@@ -17,19 +19,19 @@ science:
   resolution: 500.0
 sampling:
   replicas: 2
-  temperatures: [1.0, 2.0]
-  batch_n_iterations: 3
-  rounds: 2
+  temperatures: [1.0, 1.01]
+  batch_n_iterations: 101   # Niya run(n) → n-1 = 100 proposals per round
+  rounds: 200
   warmup_rounds: 0
 exchange:
   enabled: true
   pairing: two_replica
 logging:
   terminal: true
-  log_every_rounds: 1
+  log_every_rounds: 10
 runtime:
   coordinator_host: 127.0.0.1
   coordinator_port: 0
   round_timeout_seconds: 3600
   register_timeout_seconds: 1800   # Stancomb CRF setup often >120s per worker
-  output_dir: results/two_replica_stancomb_pt
+  output_dir: results/two_replica_stancomb_pt_r200_T1.01
