@@ -1,7 +1,9 @@
-"""Launch coordinator + two outbound workers as separate processes.
+"""Launch coordinator + N outbound workers as separate processes.
 
 Workers must be separate OS processes: the spectral RNG overlay is process-global
 and concurrent run_batch calls in one process are unsafe.
+
+Filename kept for backward compatibility; supports sampling.replicas >= 2.
 """
 
 from __future__ import annotations
@@ -73,14 +75,14 @@ def _worker_cmd(
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Run two-replica Python PT (coord + 2 workers).")
+    parser = argparse.ArgumentParser(description="Run N-replica Python PT (coord + N workers).")
     parser.add_argument("--config", type=Path, required=True)
     args = parser.parse_args(argv)
 
     try:
         config, _raw = load_pt_config(args.config)
     except (OSError, ValueError, yaml.YAMLError) as exc:
-        parser.exit(2, f"two-replica-pt: {exc}\n")
+        parser.exit(2, f"n-replica-pt: {exc}\n")
 
     host = config["runtime"]["coordinator_host"]
     port = int(config["runtime"]["coordinator_port"])
@@ -104,6 +106,9 @@ def main(argv: list[str] | None = None) -> None:
         str(resolved_yaml),
     ]
     temps = config["sampling"]["temperatures"]
+    n_replicas = int(config["sampling"]["replicas"])
+    if len(temps) != n_replicas:
+        parser.exit(2, f"n-replica-pt: temperatures length {len(temps)} != replicas {n_replicas}\n")
     worker_cmds = [
         _worker_cmd(
             python=python,
@@ -118,14 +123,15 @@ def main(argv: list[str] | None = None) -> None:
 
     if config["logging"]["terminal"]:
         print(
-            f"two-replica-pt: problem={config['science']['problem']} "
+            f"n-replica-pt: replicas={n_replicas} problem={config['science']['problem']} "
             f"data_dir={config['science'].get('data_dir')} "
             f"sigma_mc={config['science'].get('sigma_mc')} "
-            f"exchange={config['exchange']['enabled']} port={port}",
+            f"temps={temps} exchange={config['exchange']['enabled']} "
+            f"pairing={config['exchange']['pairing']} port={port}",
             flush=True,
         )
         for cmd in worker_cmds:
-            print(f"two-replica-pt worker cmd: {' '.join(cmd)}", flush=True)
+            print(f"n-replica-pt worker cmd: {' '.join(cmd)}", flush=True)
 
     env = dict(os.environ)
     existing = env.get("PYTHONPATH", "")
@@ -145,9 +151,9 @@ def main(argv: list[str] | None = None) -> None:
         for proc in workers:
             proc.kill()
         coord.kill()
-        parser.exit(1, "two-replica-pt: worker shutdown timed out\n")
+        parser.exit(1, "n-replica-pt: worker shutdown timed out\n")
     if any(code != 0 for code in codes):
-        parser.exit(1, f"two-replica-pt: nonzero exit codes {codes}\n")
+        parser.exit(1, f"n-replica-pt: nonzero exit codes {codes}\n")
 
 
 if __name__ == "__main__":

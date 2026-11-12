@@ -1,4 +1,4 @@
-"""Python TCP coordinator for two-replica temperature-exchange PT."""
+"""Python TCP coordinator for N-replica temperature-exchange PT."""
 
 from __future__ import annotations
 
@@ -15,12 +15,26 @@ from typing import Any
 import numpy as np
 import yaml
 
-from adapters.stancomb_crf import resolve_data_dir
 from workers.exchange import ExchangeDecision, decide_temperature_exchange
-from workers.problem_factory import science_fingerprint
+from workers.pairing import neighbor_pairs, pairs_for_config  # noqa: F401
 from workers.protocol import ProtocolError, read_frame, write_frame
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+_ALLOWED_PAIRINGS = frozenset({"two_replica", "neighbor_odd_even"})
+
+
+def _resolve_data_dir(path: str | Path):
+    # Lazy import: keeps config validation usable without gstatsim installed.
+    from adapters.stancomb_crf import resolve_data_dir
+
+    return resolve_data_dir(path)
+
+
+def _science_fingerprint(science: dict[str, Any]) -> tuple[Any, ...]:
+    from workers.problem_factory import science_fingerprint
+
+    return science_fingerprint(science)
 
 
 @dataclass
@@ -42,7 +56,7 @@ def load_pt_config(path: Path) -> tuple[dict[str, Any], bytes]:
 
 def validate_pt_config(config: dict[str, Any]) -> dict[str, Any]:
     defaults = {
-        "experiment": {"name": "two_replica_pt", "seed": 1234},
+        "experiment": {"name": "n_replica_pt", "seed": 1234},
         "science": {
             "problem": "synthetic",
             "backend": "cpu",
@@ -60,14 +74,14 @@ def validate_pt_config(config: dict[str, Any]) -> dict[str, Any]:
             "rounds": 5,
             "warmup_rounds": 0,
         },
-        "exchange": {"enabled": True, "pairing": "two_replica"},
+        "exchange": {"enabled": True, "pairing": "neighbor_odd_even"},
         "logging": {"terminal": True, "log_every_rounds": 1},
         "runtime": {
             "coordinator_host": "127.0.0.1",
             "coordinator_port": 5000,
             "round_timeout_seconds": 600,
             "register_timeout_seconds": 1800,
-            "output_dir": "results/two_replica_pt_synthetic",
+            "output_dir": "results/n_replica_pt_synthetic",
         },
     }
     unknown = set(config) - set(defaults)
@@ -123,7 +137,7 @@ def validate_pt_config(config: dict[str, Any]) -> dict[str, Any]:
         ):
             raise ValueError("science.resolution must be positive and finite")
     else:
-        data_root = resolve_data_dir(science["data_dir"])
+        data_root = _resolve_data_dir(science["data_dir"])
         if not data_root.is_dir():
             raise ValueError(f"science.data_dir is not a directory: {data_root}")
         csv_path = data_root / "StancombWillsDataGridded.csv"
@@ -135,19 +149,17 @@ def validate_pt_config(config: dict[str, Any]) -> dict[str, Any]:
         science["data_dir"] = str(data_root)
 
     replicas = _int(sampling["replicas"], "sampling.replicas", 2)
-    if replicas != 2:
-        raise ValueError("MVP coordinator supports exactly sampling.replicas: 2")
     temps = sampling["temperatures"]
-    if not isinstance(temps, list) or len(temps) != 2:
-        raise ValueError("sampling.temperatures must be a list of length 2")
+    if not isinstance(temps, list) or len(temps) != replicas:
+        raise ValueError(
+            f"sampling.temperatures must be a list of length sampling.replicas ({replicas})"
+        )
     temps_f = []
     for i, t in enumerate(temps):
         if isinstance(t, bool) or not isinstance(t, (int, float)) or not math.isfinite(t) or t <= 0:
             raise ValueError(f"sampling.temperatures[{i}] must be a positive finite number")
         temps_f.append(float(t))
     sampling["temperatures"] = temps_f
-    if exchange["enabled"] and 1.0 not in temps_f:
-        raise ValueError("PT mode requires exactly one cold temperature 1.0 in sampling.temperatures")
     if exchange["enabled"] and temps_f.count(1.0) != 1:
         raise ValueError("PT mode requires exactly one temperature equal to 1.0")
     _int(sampling["batch_n_iterations"], "sampling.batch_n_iterations", 2)
@@ -158,8 +170,12 @@ def validate_pt_config(config: dict[str, Any]) -> dict[str, Any]:
 
     if not isinstance(exchange["enabled"], bool):
         raise ValueError("exchange.enabled must be a boolean")
-    if exchange["pairing"] != "two_replica":
-        raise ValueError("only exchange.pairing: two_replica is implemented")
+    if exchange["pairing"] not in _ALLOWED_PAIRINGS:
+        raise ValueError(
+            "exchange.pairing must be one of: " + ", ".join(sorted(_ALLOWED_PAIRINGS))
+        )
+    if exchange["pairing"] == "two_replica" and replicas != 2:
+        raise ValueError("exchange.pairing two_replica requires sampling.replicas == 2")
 
     if not isinstance(logging["terminal"], bool):
         raise ValueError("logging.terminal must be a boolean")
@@ -202,10 +218,11 @@ def _resolve_output_dir(path_str: str) -> Path:
 
 
 class PTCoordinator:
-    """Synchronous two-replica coordinator: batch barrier → swap decision → assign T."""
+    """Synchronous N-replica coordinator: batch barrier → neighbor swaps → assign T."""
 
     def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
+        self.n_replicas = int(config["sampling"]["replicas"])
         self.rng = np.random.default_rng(config["experiment"]["coordinator_seed"])
         self.workers: dict[int, WorkerConn] = {}
         self._register_event = asyncio.Event()
@@ -214,10 +231,16 @@ class PTCoordinator:
         self.round_logs: list[dict[str, Any]] = []
         self.swap_attempts = 0
         self.swap_accepts = 0
+        self.swap_attempts_by_edge: dict[str, int] = {}
+        self.swap_accepts_by_edge: dict[str, int] = {}
 
     @property
     def ordered_ids(self) -> list[int]:
         return sorted(self.workers)
+
+    @staticmethod
+    def _edge_key(i: int, j: int) -> str:
+        return f"{min(i, j)}-{max(i, j)}"
 
     async def _on_client(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -238,8 +261,12 @@ class PTCoordinator:
                 raise ProtocolError("REGISTER.replica_id must be an int")
             if replica_id in self.workers:
                 raise ProtocolError(f"duplicate REGISTER for replica_id={replica_id}")
-            if len(self.workers) >= 2:
-                raise ProtocolError("coordinator already has two replicas")
+            if replica_id < 0 or replica_id >= self.n_replicas:
+                raise ProtocolError(
+                    f"REGISTER.replica_id must be in [0, {self.n_replicas - 1}], got {replica_id}"
+                )
+            if len(self.workers) >= self.n_replicas:
+                raise ProtocolError(f"coordinator already has {self.n_replicas} replicas")
             if (
                 isinstance(temperature, bool)
                 or not isinstance(temperature, (int, float))
@@ -270,7 +297,7 @@ class PTCoordinator:
                 science=science,
             )
             await write_frame(writer, {"type": "REGISTER_ACK", "ok": True})
-            if len(self.workers) == 2:
+            if len(self.workers) == self.n_replicas:
                 self._register_event.set()
             await self._done_event.wait()
         except (asyncio.IncompleteReadError, ConnectionError, ProtocolError, OSError) as exc:
@@ -298,7 +325,7 @@ class PTCoordinator:
     def _assert_matching_science(self) -> dict[str, Any]:
         """Require identical worker science fingerprints matching the YAML problem."""
         workers = [self.workers[rid] for rid in self.ordered_ids]
-        fingerprints = [science_fingerprint(w.science) for w in workers]
+        fingerprints = [_science_fingerprint(w.science) for w in workers]
         if len(set(fingerprints)) != 1:
             raise RuntimeError(
                 "worker science fingerprints disagree: "
@@ -311,7 +338,7 @@ class PTCoordinator:
                 f"workers registered problem={meta['problem']!r} but config has {expected_problem!r}"
             )
         if expected_problem == "stancomb":
-            expected_dir = str(resolve_data_dir(self.config["science"]["data_dir"]))
+            expected_dir = str(_resolve_data_dir(self.config["science"]["data_dir"]))
             expected_sigma = float(self.config["science"]["sigma_mc"])
             if meta.get("data_dir") != expected_dir:
                 raise RuntimeError(
@@ -346,7 +373,7 @@ class PTCoordinator:
         n_iterations = self.config["sampling"]["batch_n_iterations"]
         timeout = float(self.config["runtime"]["round_timeout_seconds"])
         ids = self.ordered_ids
-        wa, wb = self.workers[ids[0]], self.workers[ids[1]]
+        workers = [self.workers[rid] for rid in ids]
 
         async def run_one(worker: WorkerConn) -> tuple[WorkerConn, dict[str, Any], float]:
             t0 = time.perf_counter()
@@ -356,77 +383,106 @@ class PTCoordinator:
             return worker, status, (time.perf_counter() - t0) * 1000.0
 
         t_coord0 = time.perf_counter()
-        (wa, status_a, compute_a_ms), (wb, status_b, compute_b_ms) = await asyncio.wait_for(
-            asyncio.gather(run_one(wa), run_one(wb)),
+        batch_results = await asyncio.wait_for(
+            asyncio.gather(*(run_one(w) for w in workers)),
             timeout=timeout,
         )
-        energy_a = status_a.get("energy")
-        energy_b = status_b.get("energy")
-        if (
-            isinstance(energy_a, bool)
-            or not isinstance(energy_a, (int, float))
-            or not math.isfinite(energy_a)
-            or isinstance(energy_b, bool)
-            or not isinstance(energy_b, (int, float))
-            or not math.isfinite(energy_b)
-        ):
-            raise RuntimeError("both workers must report finite energies after RUN_BATCH")
+        # Preserve ordered_ids order.
+        by_id = {w.replica_id: (w, status, compute_ms) for w, status, compute_ms in batch_results}
+        ordered = [by_id[rid] for rid in ids]
 
-        # Keep batch diagnostics from RUN_BATCH; later SET_TEMPERATURE STATUS
-        # replies intentionally leave energy/accept counters unchanged-but-stale.
-        batch_a = status_a
-        batch_b = status_b
-        t_before = [wa.temperature, wb.temperature]
+        energies: list[float] = []
+        compute_ms: list[float] = []
+        batches: list[dict[str, Any]] = []
+        for worker, status, t_ms in ordered:
+            energy = status.get("energy")
+            if (
+                isinstance(energy, bool)
+                or not isinstance(energy, (int, float))
+                or not math.isfinite(energy)
+            ):
+                raise RuntimeError(
+                    f"replica {worker.replica_id} must report a finite energy after RUN_BATCH"
+                )
+            energies.append(float(energy))
+            compute_ms.append(float(t_ms))
+            batches.append(status)
 
-        decision: ExchangeDecision | None = None
-        swapped = False
+        t_before = [w.temperature for w, _, _ in ordered]
+        swap_details: list[dict[str, Any]] = []
+        any_accepted = False
+        top_decision: ExchangeDecision | None = None
+
         if self.config["exchange"]["enabled"]:
-            u = float(self.rng.random())  # [0, 1)
-            decision = decide_temperature_exchange(
-                wa.temperature, wb.temperature, float(energy_a), float(energy_b), u
+            pair_idxs = pairs_for_config(
+                self.config["exchange"]["pairing"], len(ids), round_index
             )
-            self.swap_attempts += 1
-            if decision.accepted:
-                self.swap_accepts += 1
-                new_a, new_b = wb.temperature, wa.temperature
-                reply_a = await self._command(
-                    wa, {"type": "SET_TEMPERATURE", "temperature": new_a}
+            for ia, ib in pair_idxs:
+                wa, wb = ordered[ia][0], ordered[ib][0]
+                u = float(self.rng.random())
+                decision = decide_temperature_exchange(
+                    wa.temperature,
+                    wb.temperature,
+                    energies[ia],
+                    energies[ib],
+                    u,
                 )
-                reply_b = await self._command(
-                    wb, {"type": "SET_TEMPERATURE", "temperature": new_b}
-                )
-                wa.temperature = float(reply_a["temperature"])
-                wb.temperature = float(reply_b["temperature"])
-                swapped = True
+                edge = self._edge_key(wa.replica_id, wb.replica_id)
+                self.swap_attempts += 1
+                self.swap_attempts_by_edge[edge] = self.swap_attempts_by_edge.get(edge, 0) + 1
+                detail = {
+                    "i": wa.replica_id,
+                    "j": wb.replica_id,
+                    **decision.as_dict(),
+                }
+                if decision.accepted:
+                    self.swap_accepts += 1
+                    self.swap_accepts_by_edge[edge] = self.swap_accepts_by_edge.get(edge, 0) + 1
+                    new_a, new_b = wb.temperature, wa.temperature
+                    reply_a = await self._command(
+                        wa, {"type": "SET_TEMPERATURE", "temperature": new_a}
+                    )
+                    reply_b = await self._command(
+                        wb, {"type": "SET_TEMPERATURE", "temperature": new_b}
+                    )
+                    wa.temperature = float(reply_a["temperature"])
+                    wb.temperature = float(reply_b["temperature"])
+                    any_accepted = True
+                swap_details.append(detail)
+                if top_decision is None:
+                    top_decision = decision
 
         t_coord_ms = (time.perf_counter() - t_coord0) * 1000.0
-        record = {
+        record: dict[str, Any] = {
             "round": round_index,
-            "replica_ids": [wa.replica_id, wb.replica_id],
-            "E": [float(energy_a), float(energy_b)],
+            "replica_ids": list(ids),
+            "E": energies,
             "T_before": t_before,
-            "T": [wa.temperature, wb.temperature],
-            "a_local": [batch_a.get("a_local"), batch_b.get("a_local")],
-            "a_local_cumulative": [
-                batch_a.get("a_local_cumulative"),
-                batch_b.get("a_local_cumulative"),
-            ],
-            "accepted_this_batch": [
-                batch_a.get("accepted_this_batch"),
-                batch_b.get("accepted_this_batch"),
-            ],
-            "attempted_this_batch": [
-                batch_a.get("attempted_this_batch"),
-                batch_b.get("attempted_this_batch"),
-            ],
+            "T": [w.temperature for w, _, _ in ordered],
+            "a_local": [b.get("a_local") for b in batches],
+            "a_local_cumulative": [b.get("a_local_cumulative") for b in batches],
+            "accepted_this_batch": [b.get("accepted_this_batch") for b in batches],
+            "attempted_this_batch": [b.get("attempted_this_batch") for b in batches],
             "exchange_enabled": self.config["exchange"]["enabled"],
-            "swap": swapped,
+            "swap": any_accepted,
+            "swaps": swap_details,
             "cold_worker": self._cold_worker_id(),
-            "t_compute_ms": [compute_a_ms, compute_b_ms],
+            "t_compute_ms": compute_ms,
             "t_coord_ms": t_coord_ms,
         }
-        if decision is not None:
-            record.update(decision.as_dict())
+        # N=2 plotter contract: surface the single pair decision at top level.
+        if top_decision is not None and len(ids) == 2:
+            record.update(top_decision.as_dict())
+        elif top_decision is not None:
+            # Multi-pair: keep aggregate flags; expose first pair scalars for logs.
+            record.update(
+                {
+                    "log_ratio": top_decision.log_ratio,
+                    "p_swap": top_decision.p_swap,
+                    "accepted": any_accepted,
+                    "u": top_decision.u,
+                }
+            )
         else:
             record.update({"log_ratio": None, "p_swap": None, "accepted": False, "u": None})
         return record
@@ -443,7 +499,8 @@ class PTCoordinator:
         self.config["runtime"]["coordinator_port"] = bound_port
         if self.config["logging"]["terminal"]:
             print(
-                f"PT coordinator listening on {host}:{bound_port}; waiting for 2 REGISTER frames",
+                f"PT coordinator listening on {host}:{bound_port}; "
+                f"waiting for {self.n_replicas} REGISTER frames",
                 flush=True,
             )
 
@@ -451,7 +508,8 @@ class PTCoordinator:
             register_timeout = float(self.config["runtime"]["register_timeout_seconds"])
             if self.config["logging"]["terminal"]:
                 print(
-                    f"PT coordinator waiting up to {register_timeout:.0f}s for 2 REGISTER frames "
+                    f"PT coordinator waiting up to {register_timeout:.0f}s for "
+                    f"{self.n_replicas} REGISTER frames "
                     "(Stancomb chain build can exceed a couple minutes)",
                     flush=True,
                 )
@@ -460,13 +518,18 @@ class PTCoordinator:
             except TimeoutError as exc:
                 raise TimeoutError(
                     f"timed out after {register_timeout:.0f}s waiting for worker REGISTER "
-                    f"(got {len(self.workers)}/2). Stancomb setup is slow; raise "
+                    f"(got {len(self.workers)}/{self.n_replicas}). Stancomb setup is slow; raise "
                     "runtime.register_timeout_seconds or check worker logs."
                 ) from exc
             if self._client_errors:
                 raise RuntimeError(f"worker registration failed: {self._client_errors[0]}")
-            if len(self.workers) != 2:
-                raise RuntimeError(f"expected 2 workers, registered {len(self.workers)}")
+            if len(self.workers) != self.n_replicas:
+                raise RuntimeError(
+                    f"expected {self.n_replicas} workers, registered {len(self.workers)}"
+                )
+            missing = [i for i in range(self.n_replicas) if i not in self.workers]
+            if missing:
+                raise RuntimeError(f"missing REGISTER for replica_id(s): {missing}")
             science_meta = self._assert_matching_science()
             if self.config["logging"]["terminal"]:
                 print(
@@ -488,11 +551,12 @@ class PTCoordinator:
                     decision = "ACCEPT" if record["swap"] else "REJECT"
                     if not record["exchange_enabled"]:
                         decision = "DISABLED"
+                    n_pair = len(record.get("swaps") or [])
                     print(
                         f"round={round_index}  E={tuple(record['E'])}  T={tuple(record['T'])}  "
                         f"cold_worker={record['cold_worker']}  "
                         f"a_local={tuple(record['a_local'])}  "
-                        f"p_swap={record['p_swap']}  swap={decision}",
+                        f"pairs={n_pair}  p_swap={record['p_swap']}  swap={decision}",
                         flush=True,
                     )
 
@@ -512,14 +576,24 @@ class PTCoordinator:
         science_meta = {
             rid: self.workers[rid].science for rid in self.ordered_ids
         } if self.workers else {}
+        a_swap_by_edge = {
+            edge: (self.swap_accepts_by_edge.get(edge, 0) / attempts)
+            for edge, attempts in self.swap_attempts_by_edge.items()
+            if attempts > 0
+        }
         summary = {
             "experiment_name": self.config["experiment"]["name"],
             "rounds": self.config["sampling"]["rounds"],
+            "replicas": self.n_replicas,
             "exchange_enabled": self.config["exchange"]["enabled"],
+            "exchange_pairing": self.config["exchange"]["pairing"],
             "temperatures_initial": list(self.config["sampling"]["temperatures"]),
             "swap_attempts": self.swap_attempts,
             "swap_accepts": self.swap_accepts,
             "a_swap": (self.swap_accepts / self.swap_attempts) if self.swap_attempts else None,
+            "swap_attempts_by_edge": dict(self.swap_attempts_by_edge),
+            "swap_accepts_by_edge": dict(self.swap_accepts_by_edge),
+            "a_swap_by_edge": a_swap_by_edge,
             "final_temperatures": {
                 str(rid): self.workers[rid].temperature for rid in self.ordered_ids
             },
@@ -553,7 +627,7 @@ async def run_coordinator(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Run the Python two-replica PT coordinator.")
+    parser = argparse.ArgumentParser(description="Run the Python N-replica PT coordinator.")
     parser.add_argument("--config", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
