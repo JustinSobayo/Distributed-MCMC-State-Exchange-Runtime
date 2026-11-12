@@ -20,7 +20,7 @@ run_one () {
   echo "" | tee -a "$LOG"
   echo "===== START ${label}  $(date -Is) =====" | tee -a "$LOG"
   echo "config=${cfg}" | tee -a "$LOG"
-  python MCMC_implementation/scripts/run_two_replica_pt.py --config "$cfg" 2>&1 | tee -a "$LOG"
+  "${PY:-python}" MCMC_implementation/scripts/run_two_replica_pt.py --config "$cfg" 2>&1 | tee -a "$LOG"
   echo "===== DONE  ${label}  $(date -Is) =====" | tee -a "$LOG"
 }
 
