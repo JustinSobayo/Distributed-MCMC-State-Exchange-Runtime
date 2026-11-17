@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Sequential Stancomb campaign: 4-cold baseline r2000, then 4-replica PT r2000.
+# Ladder: [1.0, 1.01, 1.025, 1.05] (dense cold end; prior T1.35 froze).
 # Run from repo root on a compute node with conda env active and >=4 CPUs.
 set -euo pipefail
 
@@ -24,14 +25,14 @@ run_one () {
   echo "===== DONE  ${label}  $(date -Is) =====" | tee -a "$LOG"
 }
 
-run_one "four_replica_baseline_cold_r2000_T1.10match" \
+run_one "four_replica_baseline_cold_r2000_T1.05match" \
   "MCMC_implementation/configs/four_replica_stancomb_baseline_cold.yaml"
 
-run_one "four_replica_pt_r2000_T1.10" \
+run_one "four_replica_pt_r2000_T1.05" \
   "MCMC_implementation/configs/four_replica_stancomb_pt.yaml"
 
 echo "" | tee -a "$LOG"
 echo "campaign complete $(date -Is)" | tee -a "$LOG"
 echo "outputs:" | tee -a "$LOG"
-echo "  results/four_replica_stancomb_baseline_cold_r2000_T1.10match" | tee -a "$LOG"
-echo "  results/four_replica_stancomb_pt_r2000_T1.10" | tee -a "$LOG"
+echo "  results/four_replica_stancomb_baseline_cold_r2000_T1.05match" | tee -a "$LOG"
+echo "  results/four_replica_stancomb_pt_r2000_T1.05" | tee -a "$LOG"
