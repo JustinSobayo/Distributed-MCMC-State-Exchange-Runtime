@@ -8,7 +8,8 @@ A distributed runtime for parallel tempering MCMC on glacier bed / topography pr
 
 ## Poster
 
-[Draft (1).pdf](https://github.com/user-attachments/files/35066317/Draft.1.pdf)
+<img width="1055" height="802" alt="image" src="https://github.com/user-attachments/assets/69490442-5910-4116-97d4-ff957feac9d1" />
+
 
 ---
 
