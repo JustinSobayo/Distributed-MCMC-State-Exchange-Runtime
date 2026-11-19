@@ -1,0 +1,16 @@
+{
+  "region_id": "stancomb-wills",
+  "source_file": "StancombWillsDataGridded.csv",
+  "spacing_m": 500,
+  "cell_center_bounds": {
+    "xmin": -600250,
+    "ymin": 1350250,
+    "xmax": -350750,
+    "ymax": 1599750
+  },
+  "crs": null,
+  "crs_candidate": "EPSG:3031",
+  "vertical_reference": null,
+  "evidence": "MCMC_implementation/notebooks/T1_LoadData.ipynb",
+  "notes": "Bounds describe cell centers. CRS and vertical reference require source verification."
+}

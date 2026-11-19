@@ -13,6 +13,12 @@ import xarray as xr
 
 BACKEND = Path(__file__).resolve().parents[1]
 DEFAULT_INPUT = BACKEND.parent / "MCMC_implementation/data/StancombWillsDataGridded.csv"
+REGION_CONFIG = BACKEND / "data_pipeline/stancomb_wills.json"
+
+
+def load_region():
+    return json.loads(REGION_CONFIG.read_text(encoding="utf-8"))
+
 REQUIRED = {"x", "y", "surf", "bed", "velx", "vely", "smb", "dhdt",
             "highvel_mask", "bedmap_mask", "bedmap_surf", "bedmachine_source",
             "bedmachine_thickness", "bedmap_bed"}
@@ -90,7 +96,21 @@ def export_grid(source=DEFAULT_INPUT, output=None, bbox=None):
         raise ValueError("Output must have .nc extension")
     if output.resolve() == Path(source).resolve():
         raise ValueError("Output cannot replace input")
-    ds, report = build_grid(Path(source), bbox)
+    region = load_region()
+    selected_bbox = bbox
+    if selected_bbox is None and Path(source).resolve() == DEFAULT_INPUT.resolve():
+        bounds = region["cell_center_bounds"]
+        selected_bbox = [
+            bounds["xmin"], bounds["ymin"],
+            bounds["xmax"], bounds["ymax"],
+        ]
+
+    ds, report = build_grid(Path(source), selected_bbox)
+    report["region_configuration"] = region
+    report["requested_bbox"] = (
+    list(selected_bbox) if selected_bbox is not None else None
+)
+    ds.attrs["region_id"] = region["region_id"]
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(".nc.tmp")
     try:

@@ -54,6 +54,48 @@ class PreparationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "required columns"):
             build_grid(self.source)
 
+    def test_successful_crop(self):
+        larger = pd.concat([
+            self.frame,
+            self.frame.loc[self.frame.x == 500].assign(x=1000),
+        ])
+        larger.to_csv(self.source, index=False)
+
+        ds, report = build_grid(
+            self.source,
+            bbox=[0, 1000, 500, 1500],
+        )
+
+        self.assertEqual(report["cells"], 4)
+        self.assertEqual(ds.sizes["x"], 2)
+        self.assertEqual(ds.sizes["y"], 2)
+        np.testing.assert_array_equal(ds.x.values, [0, 500])
+        np.testing.assert_array_equal(ds.y.values, [1000, 1500])
+
+    def test_invalid_bounds_rejected(self):
+        for bounds in (
+            [500, 1000, 0, 1500],
+            [0, 1500, 500, 1000],
+            [0, 1000, float("nan"), 1500],
+        ):
+            with self.subTest(bounds=bounds):
+                with self.assertRaisesRegex(ValueError, "bbox"):
+                    build_grid(self.source, bounds)
+
+    def test_reproducible_export(self):
+        first = Path(self.temp.name) / "first.nc"
+        second = Path(self.temp.name) / "second.nc"
+
+        export_grid(self.source, first)
+        export_grid(self.source, second)
+
+        with xr.open_dataset(first) as a, xr.open_dataset(second) as b:
+            xr.testing.assert_equal(a, b)
+            self.assertEqual(
+                a.attrs["source_sha256"],
+                b.attrs["source_sha256"],
+            )    
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -51,3 +51,45 @@ Build from this directory: `docker build -t junia-backend .`
 Run API: `docker run --rm -p 8000:8000 junia-backend`
 To run preparation, mount repository input read-only and generated output writable,
 then use `python -m data_pipeline.preprocessing --input /input/StancombWillsDataGridded.csv --output /output/stancomb_wills.nc`.
+
+
+## Researcher API
+
+Start from junia-backend:
+
+```powershell
+python -m uvicorn app.main:app --reload
+```
+
+Interactive documentation: http://127.0.0.1:8000/docs
+
+| Endpoint | Purpose |
+|---|---|
+| GET /health | Check backend availability |
+| GET /datasets | List supported datasets |
+| GET /regions | Read region configuration |
+| POST /prepare | Prepare data and return an ID |
+| GET /preparations/{id} | Retrieve saved status |
+| GET /preparations/{id}/output | Download NetCDF |
+
+Example preparation request:
+
+```json
+{
+  "dataset_id": "stancomb-wills-prepared",
+  "region_id": "stancomb-wills"
+}
+```
+
+Preparation runs synchronously. Optional bbox values use source-grid
+meters in the order xmin, ymin, xmax, ymax.
+
+Outputs are stored in generated/preparations/{id}/.
+Scientific metadata remains provisional.
+
+Install test dependencies and run all tests:
+
+```powershell
+python -m pip install -r requirements-dev.txt
+python -m unittest discover -s tests -v
+```
