@@ -8,15 +8,7 @@ A distributed runtime for parallel tempering MCMC on glacier bed / topography pr
 
 ## Poster
 
-*(Poster draft goes here — add your figure or PDF under `assets/poster/` and link it below.)*
-
-```text
-assets/poster/   ← place your poster draft file here
-```
-
-<!-- Example once you add the file:
-![Project poster](assets/poster/poster_draft.png)
--->
+[Draft (1).pdf](https://github.com/user-attachments/files/35066317/Draft.1.pdf)
 
 ---
 
